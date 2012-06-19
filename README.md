@@ -23,7 +23,7 @@ console.log(elo.mixin.call({}, elo));
 
 # Compatibility
 
-Supports all major browsers. Tested in: Chrome / FF3+ / Opera / IE7+ / Safari. (If you do identify an a compatibility issue please [report it here](https://github.com/ryanve/elo/issues).)
+Supports all major browsers. Tested in: Chrome / FF3+ / Opera / IE7+ / Safari. (If you do find a compatibility issue please [report it here](https://github.com/ryanve/elo/issues).)
 
 # License
 

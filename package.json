@@ -1,0 +1,14 @@
+{
+    "name": "elo",
+    "description": "A lo-fi JavaScript events library.",
+    "version": "1.0.0",
+    "homepage": "https://github.com/ryanve/elo",
+    "author": "Ryan Van Etten <@ryanve>",
+    "keywords": ["ender", "event", "events", "data", "dom", "javascript", "js"],
+    "main": "./elo.js",
+    "ender": "noop",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/ryanve/elo.git"
+    }
+}

@@ -131,7 +131,7 @@
     api[name] = api;
 
     /**
-     * Object iterator - fire a function for each value in the specified object.
+     * Object iterator - call a function for each value in the specified object.
      * @param  {Object|function(...)|*} ob     is the object to iterate over
      * @param  {function(...)}          fn     is the callback - it receives (value, key, ob)
      * @param  {*=}                     scope  thisArg (defaults to current item)
@@ -322,7 +322,7 @@
                     delete eventMap[id][key];
                 } else if (fid = fn['uidElo']) {// remove the specified handler:
                     eachSSV(eventMap[id][key], function(handler) {
-                        // Check for negative IDs too. (See on())
+                        // Push all of 'em except the one we want to remove:
                         fid !== handler['uidElo'] && updated.push(handler);
                     });
                     eventMap[id][key] = updated;

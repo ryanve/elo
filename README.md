@@ -12,7 +12,23 @@ elo(element)       // wrap a DOM element (all browsers)
 elo(elementArray)  // wrap NodeList or array of elements  (all browsers)
 elo(tagName)       // wrap element(s) matched by tag name (all browsers)
 elo(selector)      // wrap element(s) matched by a selector string (uses querySelectorAll)
-elo(function(elo){   }); // ready shortcut (receives elo as its 1st arg, this === document)
+elo(function($){   }); // closure (receives elo as its 1st arg, this === document)
+```
+
+# domReady
+	
+Call a function when the DOM is ready:
+
+```js
+elo.domReady(function($){ 
+	/* ($ === elo) and (this === document) in here */ 
+});
+```
+
+```js 
+elo(document).ready(function($){
+	/* ($ === elo) and (this === document) in here */ 
+});
 ```
 
 I'm still working on these docs, but the [source](https://github.com/ryanve/elo/blob/master/elo.js) is already documented, and you can see all the methods if you do:

@@ -5,7 +5,7 @@
  * @author      Ryan Van Etten (c) 2012
  * @link        http://github.com/ryanve/elo
  * @license     MIT
- * @version     1.0.0
+ * @version     1.1.0
  */
 
 /*jslint browser: true, devel: true, node: true, passfail: false, bitwise: true, continue: true
@@ -15,7 +15,7 @@
 
 (function(factory) {
     if (typeof exports !== 'undefined' && typeof module !== 'undefined') {
-        module.exports = factory();     // node
+        module.exports = factory(); // node server
     } else { this['elo'] = factory(); } // browser
 }(function(host) { // factory:
 
@@ -44,7 +44,7 @@
       , doc = document
       , docElem = doc.documentElement || {}
       , slice = [].slice // jsperf.com/arrayify-slice/3
-      , undef // undefined
+      , undef // === undefined
 
         // Feature detection:
       , W3C = !!doc.addEventListener
@@ -54,17 +54,18 @@
         // Data objects are organized by unique identifier:
       , eventMap = {} // event data cache
       , dataMap = {} // other data cache
-      , uidElo = 1  // unique identifier
-      , uidKey = 'data-uid-elo' // DOM elements are identified via data attribute.
+      , uidKey = 'data-uid-elo' // elements are identified via data attribute
+      , uidElo = 1 // unique identifier for non-elements
+      , hook = {} // see api['hook'] and usage in the `Api` function
 
         // Normalize the native add/remove-event methods:
       , add = W3C ? function (node, type, fn) { node.addEventListener(type, fn, false); }
                   : function (node, type, fn) { node.attachEvent('on' + type, fn); }
       , rem = W3C ? function (node, type, fn) { node.removeEventListener(type, fn, false); }
                   : function (node, type, fn) { node.detachEvent('on' + type, fn); }
-                  
+
         // Simple query engine:
-      , queryEngine = QSA // caniuse.com/#feat=queryselector
+      , qsa = QSA // caniuse.com/#feat=queryselector
             ? function (s, root) { return s ? (root || doc).querySelectorAll(s) : []; }
             : function (s, root) { return s ? (root || doc).getElementsByTagName(s) : []; }
 
@@ -84,7 +85,7 @@
     function api(item, root) {
         return new Api(item, root);
     }
-        
+
     /**
      * @constructor
      * @param  {*=}       item 
@@ -94,7 +95,9 @@
         var i;
         if ( !item ) { return this; }
         if (typeof item === 'function') {
-            domReady(item); // `item` receives the `api` as its first arg
+            // The default closure makes it so `item` receives the `api` as its first arg
+            // Devs can add a ready shortcut by setting (elo.closure = elo.domReady)
+            hook['closure'](item);
         } else if (item.nodeType || item === win || (i = item.length) !== +i) {
             // DOM elems/nodes or anything w/o a length number gets handled here. The window
             // has length in it and must be checked too. ( jsperf.com/iswindow-prop )
@@ -103,7 +106,7 @@
         } else {// Array-like:
             if (typeof item === 'string') {
                 this['selector'] = item;
-                item = queryEngine(item, root);
+                item = hook['select'](item, root);
                 i = item.length;
             }
             // Ensure length is 0 or a positive finite num:
@@ -145,6 +148,19 @@
             }
         }
         return ob; // chain
+    }
+
+    /**
+     * Object iterator - call a function for each **method** in the specified object.
+     * @param  {Object|function(...)|*} ob     is the object to iterate over
+     * @param  {function(...)}          fn     is the callback - it receives (value, key, ob)
+     * @param  {*=}                     scope  thisArg (defaults to current item)
+     */    
+    function eachMethod(ob, fn, scope) {
+        var n;
+        for (n in ob) {
+            ob.hasOwnProperty(n) && typeof ob[n] === 'function' && fn.call(scope || ob[n], ob[n], n, ob);
+        }
     }
 
     /**
@@ -418,7 +434,7 @@
      * @param {(Object|*)=}   node   is the element or object to attach the events to
      */
     function eachEvent(list, method, node) {
-        eachOwn(list, function(handler, type) {
+        eachMethod(list, function(handler, type){
             method(node, type, handler);
         });
     }
@@ -562,14 +578,15 @@
     function trigger(node, type, args) {
         if ( !node || node.nodeType === 3 || node.nodeType === 8 ) { return; }
         if ( type == null || typeof node !== 'object' ) { throw new TypeError('@trigger'); }
-        var id = getId(node), key = 'on' + type, eventData = {};
+        var id = getId(node), typ = type.split('.')[0], key = 'on' + type, eventData = {};
         // Emulate the native and jQuery arg signature for event listeners
         // (supplying an object as first arg) but only supply a few props
         // (The `node` becomes the `this` value inside the handler.)
-        eventData['type'] = type.split('.')[0]; // type w/o namespace
+        eventData['type'] = typ; // type w/o namespace
         eventData['isTrigger'] = true;
-        if (args) { args.unshift(eventData); } // (`args` *must* be an array)
-        else { args = [eventData]; }
+        if (args){
+            args.unshift(eventData);  // (`args` *must* be an array)
+        } else { args = [eventData]; }
         eventMap[id] && applyAll(eventMap[id][key], node, args);
     }
 
@@ -585,7 +602,7 @@
     function pushOrFire(fn, argsArray) {
         if (isReady) {
             // Make is so that `this` refers to the `document` inside the `fn`
-            fn.apply(doc, argsArray || [api]); // < supply args (see readyCurry())
+            fn.apply(doc, argsArray || [api]); // < supply args (see remixReady())
         } else {
             // Push an object onto the readyStack that includes the
             // func to fire and the arguments array so that the 
@@ -608,6 +625,10 @@
         while (ob = readyStack.shift()) {// each object added via pushOrFire
             ob.f && ob.f.apply(doc, ob.a || [api]); 
         }
+
+        // Fire handlers added via .on() too. These get an eventData object as
+        // the arg and are fired after the ones above. (jQuery works the same.)
+        trigger(doc, 'ready');
     }
 
     // Add the ready listener:
@@ -616,15 +637,14 @@
     /* 
      * Define our local `domReady` method:
      * The `argsArray` parameter is for internal use.
-     * The public methods are created via readyCurry()
+     * The public methods are created via remixReady()
      * @param {function(...)}  fn   the function to fire when the DOM is ready
      * @param {Array=}  argsArray   is an array of args to supply to `fn` (defaults to [api])
      */
     domReady = !needsHack ? pushOrFire : function(fn, argsArray) {
         if ( self != top) {
             pushOrFire(fn, argsArray);
-        }
-        else {
+        } else {
             try { docElem.doScroll('left'); }
             catch (e) { return setTimeout(function() { domReady(fn, argsArray); }, 50); }
             fn.apply(doc, argsArray || [api]);
@@ -632,39 +652,40 @@
     };
     
     /* 
-     * Utility for making bound versions of the domReady/.ready functions:
-     * @param  {...}  var_args  args that fns passed to ready will receive
+     * Utility for making the public version(s) of the ready function. This gets
+     * exposed as a prop on the outputted ready method itself so that devs have a
+     * way to bind the ready function to a host lib and/or customize (curry) the
+     * args supplied to the ready function.
+     * @param  {...}  args   are zero or more args that fns passed to ready will receive
      * @return {function(...)}
      */    
-    function readyCurry(var_args) {// < zero or more args
-        // The `args` are supplied to the ready `fn` below.
-        var args = var_args ? slice.call(arguments) : [this];
-        return function(fn) {
-            domReady(fn, args); // Call our local (private) domReady method, which takes args.
-            if (this !== win) { // Chain the instance or the parent but never the window.
-                return this;
-            }
-        };
+    function remixReady(args) {
+        
+        // The `args` are supplied to the remixed ready function:
+        // We default to [this] for integration purposes (see mixout)
+        args = arguments.length ? slice.call(arguments) : [this];
+
+        function ready(fn) {
+            domReady(fn, args); // call the local (private) domReady method, which takes args
+            return this !== win && this; // chain an instance or a parent but never the window
+        }
+
+        ready['remix'] = remixReady; // add the remix function itself as method on the method
+        return ready; // the actual domReady/.ready method that elo exposes
     }
 
-    // Build the public domReady/.ready methods:
-    api['domReady'] = api[FN]['ready'] = readyCurry(api);
-    
-    // Expose the curry funcs as props on each of the methods themselves respectively
-    // so that devs can bind to an alternate host and/or customize the args supplied to 
-    // the ready function:
-    api['domReady']['remix'] = api[FN]['ready']['remix'] = readyCurry;
+    // Build the public domReady/.ready methods. (We include a top-level .ready alias.
+    // Keep that in mind when integrating w/ libs that aim to be jQuery-compatible b/c
+    // jQuery uses jQuery.ready privately for something else and here all 3 are aliased.)
+    api['ready'] = api['domReady'] = api[FN]['ready'] = remixReady(api);
 
-    // Alias 'domReady' as 'ready' on the top-level:
-    api['ready'] = api['domReady'];
-    
     // END domReady
     
     // Top-level only
     // Also see bridge() / noConflict() / mixin() / mixinEvent() defined below.
     api['applyAll'] = applyAll;
     api['hasEvent'] = hasEvent; // if we made an effin, it'd probably be a filter, but nah
-    api['qsa'] = queryEngine;   // not bridged (but expose so other modules can use it)
+    api['qsa'] = qsa;   // not bridged (but expose so other modules can use it)
 
     // Top-level + chainable
     // The top-level version are the simple (singular) versions defined above. (They 
@@ -747,6 +768,31 @@
         return this;
     };
 
+    // Method for overiding hooks:
+    (api['hook'] = function (key, val) {
+        function updateHook(fn, k) {
+            hook[k] = fn; 
+        }
+        if (typeof key === 'function') {
+            val = key.call(this, mixin({}, hook, 1));
+            val && eachMethod(val, updateHook);
+        } else if (key) {
+            if (typeof key === 'object') {
+                eachMethod(key, updateHook);
+            } else if (arguments.length < 2) {
+                return hook[key]; // get
+            } else if (typeof val === 'function') { 
+                hook[key] = val;  // set
+            }
+        } else if (!val) {
+            // restore defaults:
+            hook = {};
+            hook['select'] = qsa;
+            hook['closure'] = function(fn) { fn.call(doc, api); };
+        }
+        return this;
+    })(); // < Call (after assigned) w/o args to set defaults.
+
     /**
      * noConflict()  Destroy the global and return the api. Optionally call 
      *               a function that gets the api supplied as the first arg.
@@ -767,7 +813,7 @@
      */
     api['mixin'] = api[FN]['mixin'] = function (ob, force) {
         if (!ob || !this || this === win) { throw new TypeError('@mixin'); }
-        return mixin(this, ob, force);
+        return mixin(this, ob, force); // Delegate to the local mixout func.
     };
 
     /**
@@ -790,32 +836,29 @@
         return this;
     };
 
-    /**
-     * Special-case (internal) utility for augmenting a host with the api's methods.
-     * See usage from bridge()
-     * @param {Object|function(...)}    supplier   is the source of the methods
-     * @param {Object|function(...)}    receiver   is the host OR a prop on the host to add methods to
-     * @param {boolean=}                force      whether or not existing methods should be overwritten
-     */
-    function mixout(supplier, receiver, force) {// < signature is reverse of mixin
-        eachOwn(supplier, function(fn, name) {
-            (force || typeof receiver[name] === 'undefined')
-            && typeof fn === 'function' && 0 !== mixout[name] // filter
-            && (receiver[name] = fn['remix'] ? fn['remix'].call(this) : fn); // adapt to receiver
-        }, typeof receiver === 'function' ? receiver[FN] || receiver : receiver); // pass in scope
-    }// Methods that *never* mixout:
-     // In the filter above we prevent mixing out anything that's not a function.
-     // Our 'fn', 'selector', 'length', etc. props are caught by that. The ones 
-     // in the list below are functions so we need to specifically blacklist them:
-    mixout['bridge'] = mixout['noConflict'] = mixout['qsa'] = 0;
+        // Utility for augmenting a host with the api's methods. This private mixout func
+        // prevents mixing out anything that's not a function. Our 'fn', 'selector', 'length'
+        // etc. props are caught by that. There are a few others that we blacklist via
+        // the 'mute' prop. See usage from bridge() and the blacklist at the bottom of page.
+    
+    api['mixout'] = api[FN]['mixout'] = (function(mixoutPvt) {
 
-    /** If we were to provide a public mixout method, it'd be like this: */
-    //mixout['mixout'] = 0; // make sure to blacklist 'mixout' itself
-    //api['mixout'] = api[FN]['mixout'] = function (host, force) {
-    //    if (!host || !this || this === win) { throw new TypeError('@mixout'); }
-    //    mixout(typeof host === 'function' ? host[FN] || host : host, this, force, host);
-    //    return this;
-    //};
+            // Return the public method (which passes args to the private mixoutPvt)
+            return function (host, force) {
+                if (!host || !this || this === win) { throw new TypeError('@mixout'); }
+                mixoutPvt(this, host, force, typeof host === 'function' ? host[FN] || host : host);
+                return this;
+            };
+
+        // Pass mixoutPvt into the closure:
+        }(function(supplier, receiver, force, scope) {// < signature like reverse of mixin
+            eachMethod(supplier, function(fn, name) {
+                (force || typeof receiver[name] === 'undefined')
+                && fn['mute'] !== true // filter out "muted" methods
+                && (receiver[name] = fn['remix'] ? fn['remix'].call(this) : fn); // adapt to receiver (this === scope)
+        }, scope); // Pass in outer scope (either the receiver or its 'fn' prop, detemined @ the public method)
+
+    }));
 
     /**
      * bridge()       Handler for integrating (mixing out) methods into a host. It
@@ -831,11 +874,17 @@
      */
     api['bridge'] = function (host, force, flag) {
         if (host instanceof Object) {
-            2 !== flag && mixout(api, host, force); // top-level
-            1 !== flag && typeof host === 'function' && host[FN] && mixout(api[FN], host[FN], force);
+            2 !== flag && this['mixout'](host, force); // top-level
+            1 !== flag && typeof host === 'function' && host[FN] && this[FN]['mixout'](host, force);
         }
-        return api;
+        return this;
     };
+
+    // Mixout blacklist: specify that these methods are not designed to be bridged:
+    api['hook']['mute'] = api['bridge']['mute'] = api['noConflict']['mute'] = true;
+    // If there were lots we'd do it like this:
+    // eachSSV('hook bridge noConflict', function(n){ api[n]['mute'] = true; });
+    
 
     // api.eventMap = eventMap; // only for testing
     // api.dataMap = dataMap;   // only for testing

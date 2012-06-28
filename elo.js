@@ -126,7 +126,7 @@
 
     // Default props:
     api[FN]['length'] = 0;
-    api[FN][ 'selector'] = '';
+    api[FN]['selector'] = '';
 
     // Create top-level reference to self:
     // This makes it possible to bridge into a host, destroy the global w/ noConflict, 

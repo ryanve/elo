@@ -12,7 +12,7 @@ elo(element)       // wrap a DOM element (all browsers)
 elo(elementArray)  // wrap NodeList or array of elements  (all browsers)
 elo(tagName)       // wrap element(s) matched by tag name (all browsers)
 elo(selector)      // wrap element(s) matched by a selector string (uses querySelectorAll)
-elo(function($){   }); // closure (receives elo as its 1st arg, this === document)
+elo(function($){   }); // ready shortcut (receives elo as its 1st arg, this === document)
 ```
 
 # domReady
@@ -30,6 +30,39 @@ elo(document).ready(function($){
 	/* ($ === elo) and (this === document) in here */ 
 });
 ```
+
+# top-level
+
+// the top-level versions of these operate on a single element:
+elo.on(elem, eventName, eventHandler)
+elo.off(elem, eventName, eventHandler)
+elo.one(elem, eventName, eventHandler)
+elo.trigger(elem, eventName [, extraParams])
+elo.data(elem, [, key , value])
+elo.removeData(elem, [, keys])
+
+// 
+elo.cleanData(obj)
+elo.each(obj, callback [, thisArg])
+elo.hasEvent(eventName [, elemOrTag])
+elo.applyAll(stack [, thisArg, argsArray])
+elo.mixin(obj)
+elo.mixinEvent(eventShortcutNamesSSV)
+elo.noConflict([callback])
+elo.bridge(receiver)
+
+# effins
+
+// the effin versions opererate on all the elements in a matched set:
+elo(elems).on(eventName, eventHandler)
+elo(elems).off(eventName, eventHandler)
+elo(elems).one(eventName, eventHandler)
+elo(elems).trigger(eventName [, extraParams])
+elo(elems).data([key, value])
+
+//
+elo(elems).each(callback [, thisArg])
+elo.fn.mixin(obj)
 
 I'm still working on these docs, but the [source](https://github.com/ryanve/elo/blob/master/elo.js) is already documented, and you can see all the methods if you do:
 

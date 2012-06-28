@@ -34,35 +34,39 @@ elo(document).ready(function($){
 # top-level
 
 // the top-level versions of these operate on a single element:
-elo.on(elem, eventName, eventHandler)
-elo.off(elem, eventName, eventHandler)
-elo.one(elem, eventName, eventHandler)
-elo.trigger(elem, eventName [, extraParams])
-elo.data(elem, [, key , value])
-elo.removeData(elem, [, keys])
+
+- elo.on(elem, eventName, eventHandler)
+- elo.off(elem, eventName, eventHandler)
+- elo.one(elem, eventName, eventHandler)
+- elo.trigger(elem, eventName [, extraParams])
+- elo.data(elem, [, key , value])
+- elo.removeData(elem, [, keys])
 
 // 
-elo.cleanData(obj)
-elo.each(obj, callback [, thisArg])
-elo.hasEvent(eventName [, elemOrTag])
-elo.applyAll(stack [, thisArg, argsArray])
-elo.mixin(obj)
-elo.mixinEvent(eventShortcutNamesSSV)
-elo.noConflict([callback])
-elo.bridge(receiver)
+
+- elo.cleanData(obj)
+- elo.each(obj, callback [, thisArg])
+- elo.hasEvent(eventName [, elemOrTag])
+- elo.applyAll(stack [, thisArg, argsArray])
+- elo.mixin(obj)
+- elo.mixinEvent(eventShortcutNamesSSV)
+- elo.noConflict([callback])
+- elo.bridge(receiver)
 
 # effins
 
 // the effin versions opererate on all the elements in a matched set:
-elo(elems).on(eventName, eventHandler)
-elo(elems).off(eventName, eventHandler)
-elo(elems).one(eventName, eventHandler)
-elo(elems).trigger(eventName [, extraParams])
-elo(elems).data([key, value])
+
+- elo(elems).on(eventName, eventHandler)
+- elo(elems).off(eventName, eventHandler)
+- elo(elems).one(eventName, eventHandler)
+- elo(elems).trigger(eventName [, extraParams])
+- elo(elems).data([key, value])
 
 //
-elo(elems).each(callback [, thisArg])
-elo.fn.mixin(obj)
+
+- elo(elems).each(callback [, thisArg])
+- elo.fn.mixin(obj)
 
 I'm still working on these docs, but the [source](https://github.com/ryanve/elo/blob/master/elo.js) is already documented, and you can see all the methods if you do:
 

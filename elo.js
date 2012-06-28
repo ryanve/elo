@@ -5,7 +5,7 @@
  * @author      Ryan Van Etten (c) 2012
  * @link        http://github.com/ryanve/elo
  * @license     MIT
- * @version     1.2.0
+ * @version     1.2.1
  */
 
 /*jslint browser: true, devel: true, node: true, passfail: false, bitwise: true, continue: true
@@ -117,16 +117,16 @@
             while ( i-- ) {// make array-like:
                 this[i] = item[i]; 
             }
-        } // implicitly returns `this`
+        }// implicitly returns `this` when called via `new`
     }
     
     // jQuery-inspired magic to make `api() instanceof api` be `true` and to make
-    // it so that methods added to api.fn map back to the prototype and vice versa:
+    // it so that methods added to api.fn map back to the prototype and vice versa.
     api.prototype = api[FN] = Api.prototype = {};
 
     // Default props:
     api[FN]['length'] = 0;
-    api[FN]['selector'] = '';
+    api[FN][ 'selector'] = '';
 
     // Create top-level reference to self:
     // This makes it possible to bridge into a host, destroy the global w/ noConflict, 
@@ -464,9 +464,8 @@
     function on(node, types, fn) {
         // jQuery bans text/comment nodes, which makes sense, so we do the same:
         // The false "shorthand" has no effect here.
-        if ( !node || node.nodeType === 3 || node.nodeType === 8 || !fn ) { return; }
-        var id, isMap = typeof types === 'object';
-        // var id, isMap = !fn && typeof types === 'object';
+        if ( !node || node.nodeType === 3 || node.nodeType === 8 || false === fn ) { return; }
+        var id, isMap = !fn && typeof types === 'object';
 
         if (types == null 
          || typeof node !== 'object'
@@ -523,7 +522,7 @@
      * @param  {function(...)=}    fn       the event handler to remove
      */
     function off(node, types, fn) {
-        if ( !node || node.nodeType === 3 || node.nodeType === 8 || !fn ) { return; }
+        if ( !node || node.nodeType === 3 || node.nodeType === 8 || false === fn ) { return; }
         if (typeof node !== 'object') { 
             throw new TypeError('@off'); 
         }
@@ -929,24 +928,30 @@
     // etc. props are caught by that. There are a few others that we blacklist via
     // the 'mute' prop. See usage from bridge() and the blacklist at the bottom of page.
     
-    api['mixout'] = api[FN]['mixout'] = (function(mixoutPvt) {
+    function mixout(supplier, receiver, force, scope) {
+        // signature of this it the reverse of local mixin
+        // when converted to a method, `this` => supplier,
 
-            // Return the public method (which passes args to the private mixoutPvt)
-            return function (host, force) {
-                if (!host || !this || this === win) { throw new TypeError('@mixout'); }
-                mixoutPvt(this, typeof host === 'function' ? host[FN] || host : host, force, host);
-                return this;
-            };
+        var n;
+        scope = scope || (typeof receiver === 'function' ? receiver : api);
+        // the `scope` should be the host api func ($), for use w/ remix props
 
-        // Pass mixoutPvt into the closure:
-        }(function(supplier, receiver, force, scope) {// < signature like reverse of mixin
-            eachOwn(supplier, function(fn, name) {
-                (force || typeof receiver[name] === 'undefined')
-                && typeof fn === 'function' && fn['mute'] !== true // filter out "muted" methods
-                && (receiver[name] = fn['remix'] ? fn['remix'].call(this) : fn); // adapt to receiver (this === scope)
-        }, scope); // Pass in outer scope (either the receiver or its 'fn' prop, detemined @ the public method)
+        for (n in supplier) {
+            (supplier.hasOwnProperty(n)
+            && typeof supplier[n] === 'function' // methods only
+            && (force || typeof receiver[n] === 'undefined')
+            && true !== supplier[n]['mute']      // filter out "muted" methods
+            && (receiver[n] = supplier[n]['remix'] ? supplier[n]['remix'].call(scope) : supplier[n]));
+        }
 
-    }));
+        return this;
+    }
+
+    api['mixout'] = api[FN]['mixout'] = function(receiver, force, scope) {
+        if ( !receiver || !this || this === win ){ throw new TypeError('@mixout'); }
+        mixout(this, receiver, force, scope);
+        return this;
+    };
 
     /**
      * bridge()       Handler for integrating (mixing out) methods into a host. It
@@ -961,11 +966,12 @@
      * @param {number=}             flag    1: top-level only, 2: effins only
      */
     api['bridge'] = function (host, force, flag) {
+        var supplier = typeof this === 'function' ? this : api; // allow binding
         if (host instanceof Object) {
-            2 !== flag && this['mixout'](host, force); // top-level
-            1 !== flag && typeof host === 'function' && host[FN] && this[FN]['mixout'](host, force);
+            2 !== flag && mixout(supplier, host, force, host); // top-level
+            1 !== flag && typeof host === 'function' && host[FN] && mixout(supplier[FN], host[FN], force, host);
         }
-        return this;
+        return supplier;
     };
     
     /**

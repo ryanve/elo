@@ -5,13 +5,13 @@
  * @author      Ryan Van Etten (c) 2012
  * @link        http://github.com/ryanve/elo
  * @license     MIT
- * @version     1.2.1
+ * @version     1.3.0
  */
 
 /*jslint browser: true, devel: true, node: true, passfail: false, bitwise: true, continue: true
 , debug: true, eqeq: true, es5: true, forin: true, newcap: true, nomen: true, plusplus: true
 , regexp: true, undef: true, sloppy: true, stupid: true, sub: true, vars: true, white: true
-, indent: 4, maxerr: 50 */
+, indent: 4, maxerr: 80 */
 
 (function(factory) {
     if (typeof exports !== 'undefined' && typeof module !== 'undefined') {
@@ -38,24 +38,23 @@
 
     var root = this
       , name = 'elo'
-      , old = root[name]
       , FN = 'fn' // inlined @ minification
-      , UND // === undefined
       , win = window
       , doc = document
-      , docElem = doc.documentElement || {}
+      , docElem = doc.documentElement
       , slice = [].slice // jsperf.com/arrayify-slice/3
-
-        // Feature detection:
-      , W3C = !!doc.addEventListener
-      , QSA = !!doc.querySelectorAll
-      , FIX = !('onblur' in docElem) // Detect whether we need to fix event detection in hasEvent()
 
         // Data objects are organized by unique identifier:
       , eventMap = {} // event data cache
       , dataMap = {} // other data cache
-      , uidKey = 'data-uid-elo' // elements are identified via data attribute
-      , uidElo = 1 // unique identifier for non-elements
+      , uidProp = 'uidElo' // property name
+      , uidAttr = 'data-uid-elo' // elements are identified via data attribute
+      , uid = 1 // unique identifier
+      
+        // Feature detection:
+      , W3C = !!doc.addEventListener
+      , QSA = !!doc.querySelectorAll
+      , FIX = !('onblur' in docElem) // Detect whether we need to fix event detection in hasEvent()
 
         // Normalize the native add/remove-event methods:
       , add = W3C ? function (node, type, fn) { node.addEventListener(type, fn, false); }
@@ -69,7 +68,7 @@
             : function (s, root) { return s ? (root || doc).getElementsByTagName(s) : []; }
             
         // Local vars specific to hooks:
-      , $hook // recycled instance of `Hook` - see api['hook'] and `Hook` and `Api`
+      , $hook       // recycled `Hook` instance - see api['hook'] and `Hook` and `Api`
       , burned = {} // once a hook is burned it cannot be modified
 
         // Local vars specific to domReady:
@@ -77,7 +76,7 @@
       , isReady = /^loade|c/.test(doc.readyState) // test initial state
       , needsHack = !!docElem.doScroll
       , readyType = needsHack ? 'onreadystatechange' : 'DOMContentLoaded'
-      , domReady // defined below
+      , domReady // defined later
     ;
 
     /**
@@ -98,7 +97,7 @@
         var i;
         if ( !item ) { return this; }
         if ( typeof item === 'function' ) {
-            // The default 'api' closure is a ready shortcut that passes the `api` as the
+            // The default 'api' hook is a ready shortcut that passes the `api` as the
             // first arg and the `document` as `this`:
             $hook['api'](item);
         } else if ( item.nodeType || typeof (i = item.length) !== 'number' || item === win ) {
@@ -112,10 +111,10 @@
                 item = $hook['select'](item, root);
                 i = item.length;
             }
-            // Ensure length is 0 or a positive finite "number" and not NaN:
-            this['length'] = i = i > 0 ? i >>> 0 : 0;
+            // Ensure length is 0 or a positive finite integer:
+            this['length'] = i = i > 0 ? i >> 0 : 0;
             while ( i-- ) {// make array-like:
-                this[i] = item[i]; 
+                this[i] = item[i];
             }
         }// implicitly returns `this` when called via `new`
     }
@@ -165,18 +164,25 @@
 
         // Opt out of the native forEach here b/c we want to:
         // * support arr-like objects and strings
-        // * default the scope to the current item
+        // * default the scope to the current item (or `false` if the item == null)
         // * return the object for chaining
         // * be able to break out of the loop by returning `false` in the `fn`
+        // * enable specifying a starting index via the `i` param
 
         // Array-like: 
         // Anything other than funcs that have a length *number* incl. 0 but not NaN:
-        if (typeof l === 'number' && typeof ob !== 'function' && l === l) {// < last part stuffs NaN
-            while ( i < l ) {// minifies to `for(;i<l;)`
-                if ( fn.call(scope || ob[i], ob[i], i++, ob) === false ) {
+        if (typeof l === 'number' && typeof ob !== 'function' && l === l) {// last check stuffs NaN
+            while ( i < l ) {// minifies to `for(;i<l;)`, iterates via the `i++` below
+                // If there is no `scope` and `ob[i]` is null or undefined, then send `false` as the
+                // scope to prevent `this` in the callback from unexpectedly resolving to `window`.
+                // If an `i in ob` were to be added here, then "string" types would needed to be
+                // converted to string objects (e.g. Object(ob)) in order to not throw an error. 
+                // Bypassing it makes the loop faster and more capable:
+                if (fn.call(scope || ob[i] || false, ob[i], i++, ob) === false) {
                     break; // jsperf.com/each-breaker/2
                 }
-            } return ob; // chain
+            }
+            return ob; // chain
         }
 
         // NOT array-like: 
@@ -214,7 +220,7 @@
      */
     function mixin(receiver, supplier, force) {
         receiver && supplier && eachOwn(supplier, function(v, k){
-            (force || typeof receiver[k] === 'undefined') && (receiver[k] = v);
+            (force || void 0 === receiver[k]) && (receiver[k] = v);
         });
         return receiver;
     }
@@ -230,7 +236,7 @@
      */
     function applyAll(fns, scope, args, breaker) {
         if ( !fns ) { return true; } // ensures the only way to return falsey is via the breaker
-        var i = 0, l = fns.length, stop = typeof breaker !== 'undefined';
+        var i = 0, l = fns.length, stop = void 0 !== breaker;
         stop || (breaker = 0); // breaker is disregarded w/o stop - do this to simplify the loop
         for (args = args || []; i < l; i++) {
             if (typeof fns[i] === 'function' && fns[i].apply(scope, args) === breaker && stop) {
@@ -249,16 +255,15 @@
      * @return {number|undefined}
      */
     function getId(item) {
-        var id;
-        if (item) {
-            if (item.nodeType && item.getAttribute && item.setAttribute) {// DOM elements:
-                (id = item.getAttribute(uidKey)) || item.setAttribute(uidKey, (id = uidElo++));
-            } else if (typeof item === 'function' || typeof item === 'object') {
-                return (item === doc ? 'd' : item === win ? 'w'        // document / window
-                     : (item['uidElo'] = item['uidElo'] || uidElo++)); // other objects/funcs
-            }
+        var id; // initially undefined
+        if (!item) { return id; }
+        if (item.nodeType && item.getAttribute && item.setAttribute ) {// DOM elements:
+            (id = item.getAttribute(uidAttr)) || item.setAttribute(uidAttr, (id = uid++));
+            return id;
         }
-        return id;
+        return (typeof item !== 'object' && typeof item !== 'function' ? id // undefined
+                : (item === doc ? 'd' : item === win ? 'w' : item === root ? 'r' // document|window|root
+                : (item[uidProp] = item[uidProp] || uid++))); // other objects/funcs
     }
 
     /**
@@ -274,7 +279,7 @@
         }
         dataMap[id] = dataMap[id] || {}; // initialize if needed
         if ( key == null ) {// GET invalid OR all
-            return key === null ? UND : mixin({}, dataMap[id], 1);
+            return key === null ? void 0 : mixin({}, dataMap[id], 1);
         }
         if ( hasVal ) {
             dataMap[id][key] = val; // SET (single)
@@ -329,10 +334,10 @@
             } else if ( eventMap[id][key = 'on' + type] ) {
                 if ( !fn ) {// remove all of node's handlers for the type:
                     delete eventMap[id][key];
-                } else if (fid = fn['uidElo']) {// remove the specified handler:
+                } else if (fid = fn[uidProp]) {// remove the specified handler:
                     eachSSV(eventMap[id][key], function(handler) {
                         // Push all of 'em except the one we want to remove:
-                        fid !== handler['uidElo'] && updated.push(handler);
+                        fid !== handler[uidProp] && updated.push(handler);
                     });
                     eventMap[id][key] = updated;
                     if ( !updated[0] ) {
@@ -352,20 +357,19 @@
      * @param {*}  item  is the item or collection of items whose data you want to purge.
      */
     function cleanData (item) {
-        if (item) {
-            removeData(item);
-            if (typeof item === 'object') {
-                cleanEvents(item);
-                if (item.nodeType && item.removeAttribute) {
-                    item.removeAttribute(uidKey);
-                } else if (typeof item.length === 'number' && item.length) {// stuff 0 and NaN
-                    each(item, cleanData); // Go deep. . .
-                }
-            }
-            if (item['uidElo']) {
-                (delete item['uidElo']) || (item['uidElo'] = UND);
+        if ( !item ) { 
+            return item; 
+        }
+        removeData(item);
+        if (typeof item === 'object') {
+            cleanEvents(item);
+            if (item.nodeType && item.removeAttribute) {
+                item.removeAttribute(uidAttr);
+            } else if (item.length && typeof item.length === 'number') {
+                each(item, cleanData); // Go deep. . .
             }
         }
+        void 0 === item[uidProp] || (delete item[uidProp]) || (item[uidProp] = void 0);
         return item;
     }
 
@@ -383,6 +387,7 @@
      * @return  {boolean}
      */
     function hasEvent(eventName, node) {
+
         if ( !eventName ) { return false; }
         var isSupported;
         eventName = 'on' + eventName;
@@ -410,7 +415,7 @@
 
                 // Cleanup:
                 if (node[eventName] != null) {
-                    node[eventName] = UND; 
+                    node[eventName] = void 0; 
                 }
                 node.removeAttribute(eventName);
             }
@@ -446,11 +451,11 @@
         function normalized() {
             return fn.apply(scope, slice.call(arguments)); 
         }
-        if (fn['uidElo']) {
+        if (fn[uidProp]) {
             // Technically we should give `normalized` its own uid (maybe negative or
             // underscored). But, for our internal usage, cloning the original is fine, 
             // and it simplifies removing event handlers via off() (see cleanEvents()).
-            normalized['uidElo'] = fn['uidElo']; 
+            normalized[uidProp] = fn[uidProp]; 
         }
         return normalized;
     }
@@ -476,7 +481,7 @@
             eachEvent(types, on, node); 
         } else if (id = getId(node)) {
 
-            fn['uidElo'] = fn['uidElo'] || uidElo++; // add identifier
+            fn[uidProp] = fn[uidProp] || uid++; // add identifier
             eventMap[id] = eventMap[id] || []; // initialize if needed
 
             // In modern browsers the value of `this` in the listener is the node.
@@ -705,23 +710,18 @@
 
     /** 
      * Utility for converting simple static methods into their chainable effin versions.
-     * @link   jsperf.com/wrapperized-methods
+     * @link   jsperf.com/wrapperized-methods/3
      * @param  {function(...)}  fn
      * @return {function(...)}
      */
     function wrapperize(fn) {
         return function () {
-            var args = [0], i = arguments.length;
-            while (i--) {// Loop thru the args:
-                // Keep index 0 empty for elem.
-                args[i+1] = arguments[i];
+             var i = 0, l = this.length, args = [0];
+            args.push.apply(args, arguments);
+            while ( i < l ) {
+                null == (args[0] = this[i++]) || fn.apply(this, args); 
             }
-            while (++i < this.length) {// Loop thru the nodes:
-                if (args[0] = this[i]) {// Skip falsey values:
-                    fn.apply(this, args); 
-                }
-            }
-            return this; // Chain.
+            return this;
         };
     }
 
@@ -777,7 +777,7 @@
         var i, n, count = arguments.length, hasVal = 1 < count;
         if ( !count ) {
             // Return the entire data object (if it exists) or else undefined:
-            return this[0] ? data(this[0]) : UND;
+            return this[0] ? data(this[0]) : void 0;
         }
         // We have to make sure `key` is not an object (in which case it'd be set, not get)
         // Strings created by (new String()) are treated as objects. ( bit.ly/NPuVIr )
@@ -785,7 +785,7 @@
         if ( !hasVal && typeof key !== 'object' ) { // GET
             // Expedite simple gets by directly grabbing from the dataMap.
             // Return the value (if it exists) or else undefined:
-            return (i = getId(this[0])) && dataMap[i] ? dataMap[i][key] : UND;
+            return (i = getId(this[0])) && dataMap[i] ? dataMap[i][key] : void 0;
         }
         for (i = 0, n = this.length; i < n; i++) { // SET
             // Iterate thru the the elems, setting data on each of them.
@@ -798,99 +798,52 @@
 
     
     // START Hook 
-    /**
-     * Create a new object that inherits the default hooks.
-     * @constructor
-     * @param  {(Object|*)=} ob
-     */
-    function Hook(ob) {
-        // If `ob` is provided, integrate methods from `ob` into the instance:
-        ob && eachOwn(ob, updateHook, this); // < pass instance as scope
-    }
+    /** @constructor */ function Hook() {} // empty constructor
     Hook.prototype = {}; // = default hooks =
     Hook.prototype['api'] = domReady;
     Hook.prototype['select'] = qsa;
-    $hook = new Hook; // initialize (make an empty object that inherits the defaults)
-
-    /** 
-     * private function for updating hooks
-     * @this {Object}  [!] Must be called via `.call` on an instance.
-     */
-     function updateHook(fn, k){// signature for iterator
-        if ( typeof fn === 'function' ) {// override
-            if ( burned[k] !== true ) {
-                this[k] = fn;
-            }
-        } else if ( typeof fn === 'boolean' ) {// `false` has no effect
-            if ( true === fn && this[k] ) {  // `true` restores default
-                delete this[k]; // `delete` only deletes "owned" props
-            }
-        } else {// not a function or boolean:
-            throw new TypeError('@hook value');
-        }
-    }
+    $hook = new Hook; // initialize (make empty object that inherits the defaults)
 
     /** 
      * Method for setting/getting hooks:
-     * @param  {*=} key
-     * @param  {*=} val
+     * @param  {*=}  key
+     * @param  {*=}  val
+     * @param  {*=}  iter
      */
-    function hook(key, val) {
-        var ob, clone; 
-        if ( arguments.length < 2 ) {
-            if ( key == null ) {// GET-all
-                return new Hook($hook); // send a clone
+    function hook(key, val, iter) {
+        var temp, clone; 
+        if (iter) {// flip args for (v, k, ob)
+            temp = key;
+            key = val;
+            val = temp;
+        }
+        if (arguments.length < 2) {
+            if (typeof key === 'object' && key) {//SET-multi
+                each(key, hook);
+            } else if (typeof key !== 'boolean'){// GET-all or GET-simple
+                return void 0 === key ? mixin(new Hook, $hook) : $hook[key];
             }
-            if (typeof key === 'object') {
-                // updates via object are done after we know if we have
-                // func arg that returns an object
-                ob = key;
-            } else if (typeof key === 'function') {
-                // send a cloned `$hook` as the argto prevent mutation
-                // if the fn returns an object, we'll use it to "update"
-                clone = new Hook($hook);
-                ob = key.call(this, clone);
-            } else {
-                if ( key !== true ) {// GET-simple
-                    return $hook[key]; // non-existant hooks return `undefined`
-                }
-                // `true` => RESTORE *built-in* hooks to default state:
-                // iterate on the proto so that only built-in hooks are defaulted
-                // custom hooks (one not in the proto) remain as they were
-                eachOwn(Hook.prototype, function(v, k){ delete $hook[k]; });
-                return this; // restoring "returns self"
-            }
-            if (typeof ob === 'object') {// SET-multi
-                // "update" `$hook` to a clone of the old `$hook` extended by `ob`
-                $hook = new Hook(ob);
+            // HANDLE `hook(true)` and `hook(false)`:
+            if (key) {// RESTORE defaults
+                each(Hook.prototype, function(v, k){ delete $hook[k]; });
+            } else {// BURN all:
+                each($hook, function(v, k){ hook(k, false); }); 
             }
         } else {
-            if (typeof key === 'string' ? key : isFinite(key)) {// SET-simple
-                // update the current instance:
-                updateHook.call($hook, val, key); 
-            } else if (typeof key !== 'boolean') {// don't throw on bools
-                // `key` must be a truthy string or a finite number
-                throw new TypeError('@hook identifier');
+            if (typeof val === 'function') {
+                // update the hook, provided it has not been "burned"
+                true === burned[key] || ($hook[key] = val);
+            } else if (typeof val === 'boolean' && $hook[key]) {
+                // true  => restore the default hook
+                // false => burn the hook at its current state
+                val ? (delete $hook[key]) : (burned[key] = true);
             }
         }
         return this;
     }
-
     // expose the hook() method:
+    hook['mute'] = true;
     api['hook'] = hook;
-    
-    /**
-     * Burning a hook makes it so that a hook can no longer be modified. 
-     * Only hooks that exist can be burned. Returns `true` if the hook 
-     * was successfully burned. Otherwise retrns false (which happens only 
-     * if the name was invalid or never assigned).
-     * @param  {string|number|*}  hookName  is the key (identifier) of the hook to burn
-     * @return {boolean}
-     */
-    api['burn'] = function(hookName) {
-        return hookName != null && (burned[hookName] = !!$hook[hookName]);
-    };
-    
     // END Hook
 
     /**
@@ -914,7 +867,7 @@
         if (!list || !this || this === win) { throw new TypeError('@mixinEvent'); }
         var receiver = typeof this === 'function' ? this[FN] || this : this;
         eachSSV(list, function(name) {
-            if (force || typeof receiver[name] === 'undefined') {
+            if (force || void 0 === receiver[name]) {
                 receiver[name] = function (handler) {// event shortcut
                     return arguments.length ? this['on'](name, handler) : this['trigger'](name);
                 };
@@ -926,7 +879,7 @@
     // Utility for augmenting a host with the api's methods. This private mixout func
     // prevents mixing out anything that's not a function. Our 'fn', 'selector', 'length'
     // etc. props are caught by that. There are a few others that we blacklist via
-    // the 'mute' prop. See usage from bridge() and the blacklist at the bottom of page.
+    // the 'mute' prop. See usage from bridge()
     
     function mixout(supplier, receiver, force, scope) {
         // signature of this it the reverse of local mixin
@@ -939,7 +892,7 @@
         for (n in supplier) {
             (supplier.hasOwnProperty(n)
             && typeof supplier[n] === 'function' // methods only
-            && (force || typeof receiver[n] === 'undefined')
+            && (force || void 0 === receiver[n])
             && true !== supplier[n]['mute']      // filter out "muted" methods
             && (receiver[n] = supplier[n]['remix'] ? supplier[n]['remix'].call(scope) : supplier[n]));
         }
@@ -965,39 +918,55 @@
      *                                      should be overwritten (default: false)
      * @param {number=}             flag    1: top-level only, 2: effins only
      */
-    api['bridge'] = function (host, force, flag) {
+    function bridge(host, force, flag) {
         var supplier = typeof this === 'function' ? this : api; // allow binding
         if (host instanceof Object) {
             2 !== flag && mixout(supplier, host, force, host); // top-level
             1 !== flag && typeof host === 'function' && host[FN] && mixout(supplier[FN], host[FN], force, host);
         }
         return supplier;
-    };
+    }
+    bridge['mute'] = true;
+    api['bridge'] = bridge;
     
-    /**
-     * noConflict()  Destroy the global and return the api. Optionally call 
-     *               a function that gets the api supplied as the first arg.
-     * @param        {function(*)=} callback   optional callback function
-     * @example      var localElo = elo.noConflict();
-     * @example      elo.noConflict(function(elo){   });
-     */
-    api['noConflict'] = function(callback) {
-        api === root[name] && (root[name] = old);
-        hook(true); // restore built-in hooks to default state
-        typeof callback === 'function' && callback.call(root, api);
-        return api;
-    };
 
-    // Mixout blacklist: specify that these methods are not designed to be bridged:
-    api['burn']['mute'] = api['hook']['mute'] = api['bridge']['mute'] = api['noConflict']['mute'] = true;
-    // If there were lots we'd do it like this:
-    // eachSSV('hook bridge noConflict', function(n){ api[n]['mute'] = true; });
-    
+    /**
+     * @param   {Object=}             root
+     * @param   {(Object|Function)=}  api
+     * @param   {string=}             name
+     * @param   {string=}             alias
+     * @return  {Function|boolean}
+     */
+    function noConflictRemix(root, api, name, alias) {
+
+        if ( !root || !name || !api ) { return false; }
+        var old = root[name], viejo;
+        alias = typeof alias === 'string' && alias;
+        viejo = alias && root[alias];
+
+        /**
+         * noConflict()  Destroy the global and return the api. Optionally call 
+         *               a function that gets the api supplied as the first arg.
+         * @param        {Function=}  fn   optional callback function
+         */
+        function noConflict(fn) {
+            alias && api === root[alias] && (root[alias] = viejo);
+            (fn || !alias) && api === root[name] && (root[name] = old);
+            typeof fn === 'function' && fn.call(root, api, name, alias); 
+            return api;
+        }
+
+        noConflict['mute'] = true;
+        noConflict['remix'] = noConflictRemix;
+
+        return noConflict;
+    }
+    api['noConflict'] = noConflictRemix(root, api, name);
 
     // api.eventMap = eventMap; // only for testing
     // api.dataMap = dataMap;   // only for testing
 
     // Bridge into a host like ender if avail
-    return api['bridge'](host);
+    return bridge(host);
 
 })); // factory and closure

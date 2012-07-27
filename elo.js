@@ -716,7 +716,7 @@
      */
     function wrapperize(fn) {
         return function () {
-             var i = 0, l = this.length, args = [0];
+            var i = 0, l = this.length, args = [0];
             args.push.apply(args, arguments);
             while ( i < l ) {
                 null == (args[0] = this[i++]) || fn.apply(this, args); 
@@ -773,12 +773,14 @@
     // Handle data separately so that we can return the value on gets
     // but return the instance on sets. This sets the val on each elem
     // in the set vs. the lower-level method that only sets one object.
+
     api[FN]['data'] = function(key, val) {
         var i, n, count = arguments.length, hasVal = 1 < count;
         if ( !count ) {
-            // Return the entire data object (if it exists) or else undefined:
+            // GET-all (return the entire data object if it exists) or else undefined
             return this[0] ? data(this[0]) : void 0;
         }
+
         // We have to make sure `key` is not an object (in which case it'd be set, not get)
         // Strings created by (new String()) are treated as objects. ( bit.ly/NPuVIr )
         // Also remember that `key` can be a `number` too.
@@ -787,11 +789,10 @@
             // Return the value (if it exists) or else undefined:
             return (i = getId(this[0])) && dataMap[i] ? dataMap[i][key] : void 0;
         }
+        
         for (i = 0, n = this.length; i < n; i++) { // SET
-            // Iterate thru the the elems, setting data on each of them.
-            if (this[i]) {// Only attempt to set data on truthy items:
-                hasVal ? data(this[i], key, val) : data(this[i], key);
-            }
+            // Iterate thru the truthy items, setting data on each of them.
+            this[i] && (hasVal ? data(this[i], key, val) : data(this[i], key));
         }
         return this;
     };
@@ -882,7 +883,7 @@
     // the 'mute' prop. See usage from bridge()
     
     function mixout(supplier, receiver, force, scope) {
-        // signature of this it the reverse of local mixin
+        // signature of this is the reverse of local mixin
         // when converted to a method, `this` => supplier,
 
         var n;

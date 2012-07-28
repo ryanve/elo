@@ -5,7 +5,7 @@
  * @author      Ryan Van Etten (c) 2012
  * @link        http://github.com/ryanve/elo
  * @license     MIT
- * @version     1.3.0
+ * @version     1.3.1
  */
 
 /*jslint browser: true, devel: true, node: true, passfail: false, bitwise: true, continue: true
@@ -449,7 +449,7 @@
     function normalizeScope(fn, scope) {
         scope = scope || win;
         function normalized() {
-            return fn.apply(scope, slice.call(arguments)); 
+            return fn.apply(scope, arguments); 
         }
         if (fn[uidProp]) {
             // Technically we should give `normalized` its own uid (maybe negative or
@@ -561,7 +561,7 @@
             var actualHandler;
             on(node, types, actualHandler = function(){
                 off(node, types, actualHandler);
-                fn.apply(node, slice.call(arguments));
+                fn.apply(node, arguments);
             });
         }
     }

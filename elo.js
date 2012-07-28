@@ -447,7 +447,6 @@
      * @return {function(...)}
      */
     function normalizeScope(fn, scope) {
-        scope = scope || win;
         function normalized() {
             return fn.apply(scope, arguments); 
         }

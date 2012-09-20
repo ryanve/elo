@@ -5,7 +5,7 @@
  * @author      Ryan Van Etten (c) 2012
  * @link        http://github.com/ryanve/elo
  * @license     MIT
- * @version     1.4.0
+ * @version     1.4.1
  */
 
 /*jslint browser: true, devel: true, node: true, passfail: false, bitwise: true, continue: true
@@ -731,20 +731,21 @@
         };
     }
 
-    // Build effin versions of these static methods. (This must happen before bridge() is called.)
+    // Build effin versions of these static methods.
     eachSSV('addEvent removeEvent on off one trigger removeData', function (methodName) {
         api['fn'][methodName] = wrapperize(api[methodName]);
     });
 
-    // It's easier to convert the rest manually:
+    // Convert the rest manually:
     
     /**
      * .each()
-     * @param  {Function}  fn     is the callback - it receives (value, key, ob)
-     * @param  {*=}        scope  thisArg (defaults to current item)
+     * @param  {Function}  fn       is the callback - it receives (value, key, ob)
+     * @param  {*=}        scope    thisArg (defaults to current item)
+     * @param  {*=}        breaker  defaults to `false`
      */
-    api['fn']['each'] = function (fn, scope) {
-        return each(this, fn, scope); 
+    api['fn']['each'] = function (fn, scope, breaker) {
+        return each(this, fn, scope, breaker); 
     };
 
     // In elo 1.4+ the cleanData method is only directly avail on the top-level.

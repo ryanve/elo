@@ -1,32 +1,24 @@
 /*!
- * elo          Lo-fi events and lo-fi data in a compact JavaScript module that
- *              works as a standalone library or integrates into a host like ender.
- *
+ * elo          elo is lo-fi cross-browser Javascript events and data module
+ *              designed for extendabilty. It can be used as standalone lib  
+ *              or integrated into a jQuery-like host such as ender.no.de.
  * @author      Ryan Van Etten (c) 2012
  * @link        http://github.com/ryanve/elo
  * @license     MIT
- * @version     1.3.1
+ * @version     1.4.0
  */
 
 /*jslint browser: true, devel: true, node: true, passfail: false, bitwise: true, continue: true
 , debug: true, eqeq: true, es5: true, forin: true, newcap: true, nomen: true, plusplus: true
 , regexp: true, undef: true, sloppy: true, stupid: true, sub: true, vars: true, white: true
-, indent: 4, maxerr: 80 */
+, indent: 4, maxerr: 180 */
 
-(function(factory) {
-    if (typeof exports !== 'undefined' && typeof module !== 'undefined') {
-        module.exports = factory(); // node server
-    } else { this['elo'] = factory(); } // browser
-}(function(host) { // factory:
+(function (root, name, factory) {
+    if (typeof module != 'undefined' && module['exports']) { module['exports'] = factory(); } // node
+    else { root[name] = factory(); } // browser
+}(this, 'elo', function () { // factory:
 
-    // Allow a host to be passed to the factory for use with bridge()
-    // e.g. If `factory(myHost)` or `define(name, ['myhost'], factory)` were
-    // used in the logic above, then the api's methods would automatically
-    // be added to myHost. Otherwise check for ender (ender.no.de) as a host.
-
-    host = host || this['ender'];
-    
-    // Elo takes much inspiration from:
+    // elo takes much inspiration from:
     // jQuery (jquery.com)
     // Bean   (github.com/fat/bean)
     // Bonzo  (github.com/ded/bonzo)
@@ -38,23 +30,31 @@
 
     var root = this
       , name = 'elo'
-      , FN = 'fn' // inlined @ minification
+      , alias = '$'
       , win = window
       , doc = document
       , docElem = doc.documentElement
-      , slice = [].slice // jsperf.com/arrayify-slice/3
+      , slice = [].slice
+      , owns = {}.hasOwnProperty
 
         // Data objects are organized by unique identifier:
-      , eventMap = {} // event data cache
-      , dataMap = {} // other data cache
+        // Use null objects so we don't need to do hasOwnProperty checks
+      , eventMap = { "__proto__": null } // event data cache
+      , dataMap = { "__proto__": null } // other data cache
       , uidProp = 'uidElo' // property name
       , uidAttr = 'data-uid-elo' // elements are identified via data attribute
       , uid = 1 // unique identifier
       
+        // simple query engine - use QSA or fallback to byTag
+      , queryMethod = 'querySelectorAll' // caniuse.com/#feat=queryselector
+      , QSA = !!doc[queryMethod] || !(queryMethod = 'getElementsByTagName')
+      , queryEngine = function (s, root) {
+            return s ? (root || doc)[queryMethod](s) : []; 
+        }
+
         // Feature detection:
       , W3C = !!doc.addEventListener
-      , QSA = !!doc.querySelectorAll
-      , FIX = !('onblur' in docElem) // Detect whether we need to fix event detection in hasEvent()
+      , FIX = !('onblur' in docElem) // Detect whether to fix event detection in hasEvent()
 
         // Normalize the native add/remove-event methods:
       , add = W3C ? function (node, type, fn) { node.addEventListener(type, fn, false); }
@@ -62,22 +62,32 @@
       , rem = W3C ? function (node, type, fn) { node.removeEventListener(type, fn, false); }
                   : function (node, type, fn) { node.detachEvent('on' + type, fn); }
 
-        // Simple query engine:
-      , qsa = QSA // caniuse.com/#feat=queryselector
-            ? function (s, root) { return s ? (root || doc).querySelectorAll(s) : []; }
-            : function (s, root) { return s ? (root || doc).getElementsByTagName(s) : []; }
-            
-        // Local vars specific to hooks:
-      , $hook       // recycled `Hook` instance - see api['hook'] and `Hook` and `Api`
-      , burned = {} // once a hook is burned it cannot be modified
-
         // Local vars specific to domReady:
       , readyStack = [] // stack of functions to fire when the DOM is ready
       , isReady = /^loade|c/.test(doc.readyState) // test initial state
       , needsHack = !!docElem.doScroll
       , readyType = needsHack ? 'onreadystatechange' : 'DOMContentLoaded'
       , domReady // defined later
+      , eloReady // defined later
     ;
+
+    // Temporary local version of hook allows for the actual
+    // $.hook to be added after the api has been created. If $.hook 
+    // is added, then this local version becomes a ref to $.hook
+    // See the source of @link github.com/ryanve/dj
+    // It's the best kind of magic.
+    function hook (k) {
+        var realHook = api['hook'];
+        if ( !realHook || !realHook['remix'] ) {
+            return 'select' === k ? queryEngine : 'api' === k ? eloReady : void 0;
+        }
+        // send the default hooks
+        realHook('select', queryEngine); 
+        realHook('api', eloReady);
+        realHook(name, api) && realHook(name, false);
+        hook = realHook; // redefine self
+        return realHook.apply(this, arguments);        
+    }
 
     /**
      * api is the export (all public methods are added to it)
@@ -88,44 +98,41 @@
         return new Api(item, root);
     }
 
-    /**
-     * @constructor
-     * @param  {*=}       item 
-     * @param  {Object=}  root 
-     */
-    function Api(item, root) {
-        var i;
-        if ( !item ) { return this; }
-        if ( typeof item === 'function' ) {
-            // The default 'api' hook is a ready shortcut that passes the `api` as the
+   /**
+    * @constructor
+    * @param  {*=}       item 
+    * @param  {Object=}  root 
+    * adapted from jQuery and ender.no.de
+    */
+    function Api (item, root) {
+        var i = 0;
+        this['length'] = 0;
+        if ( typeof item == 'function' ) {
+            // The default 'api' closure is a ready shortcut that passes the `api` as the
             // first arg and the `document` as `this`:
-            $hook['api'](item);
-        } else if ( item.nodeType || typeof (i = item.length) !== 'number' || item === win ) {
+            hook('api')(item); // < designed to be closure or ready shortcut
+        } else if (item && (item.nodeType || typeof (i = item.length) != 'number' || item === win)) {
             // Handle DOM elems/nodes and anything w/o a length *number* ( jsperf.com/isnumber-ab )
             // The window has length in it and must be checked too. ( jsperf.com/iswindow-prop )
             this[0] = item; 
             this['length'] = 1;
         } else {// Array-like:
-            if ( typeof item === 'string' ) {
+            if ( typeof item == 'string' ) {
                 this['selector'] = item;
-                item = $hook['select'](item, root);
+                item = hook('select')(item, root);
                 i = item.length;
             }
-            // Ensure length is 0 or a positive finite integer:
+            // Ensure length is 0 or a positive finite "number" and not NaN:
             this['length'] = i = i > 0 ? i >> 0 : 0;
             while ( i-- ) {// make array-like:
-                this[i] = item[i];
+                this[i] = item[i]; 
             }
-        }// implicitly returns `this` when called via `new`
+        }
     }
     
     // jQuery-inspired magic to make `api() instanceof api` be `true` and to make
     // it so that methods added to api.fn map back to the prototype and vice versa.
-    api.prototype = api[FN] = Api.prototype = {};
-
-    // Default props:
-    api[FN]['length'] = 0;
-    api[FN]['selector'] = '';
+    api.prototype = api['fn'] = Api.prototype = {};
 
     // Create top-level reference to self:
     // This makes it possible to bridge into a host, destroy the global w/ noConflict, 
@@ -135,61 +142,49 @@
     // and similarly it can be used for assigning methods even after the global is gone.
     api[name] = api;
 
-    /**
-     * Object iterator - call a function for each value in the specified object.
-     * @param  {Object|function(...)|*} ob     is the object to iterate over
-     * @param  {function(...)}          fn     is the callback - it receives (value, key, ob)
-     * @param  {*=}                     scope  thisArg (defaults to current item)
+    // Create reference to self in the chain:
+    api['fn'][name] = api;
+
+    /** 
+     * Function that returns false (for compat w/ jQuery's false shorthand)
      */
-    function eachOwn(ob, fn, scope) {
-        var n;
-        for (n in ob) {
-            if (ob.hasOwnProperty(n) && fn.call(scope || ob[n], ob[n], n, ob) === false) {
-                // Be able to break out of the loop by returning `false` in the `fn`
-                break;
-            }
-        }
-        return ob; // chain
+    function returnFalse() {
+        return false;
     }
 
     /**
-     * A hella' ballistic iterator. jQuery had sex w/ Underscore and this was the offspring.
-     * @param  {*}              ob     is the array|object|string|function to iterate over.
-     * @param  {function(...)}  fn     is the callback - it receives (value, key, ob)
-     * @param  {*=}             scope  thisArg (defaults to current item)
+     * $.each()                    A hella' ballistic iterator: jQuery had sex
+     *                             with Underscore. This was the offspring.
+     * @param  {*}        ob       is the array|object|string|function to iterate over.
+     * @param  {Function} fn       is the callback - it receives (value, key, ob)
+     * @param  {*=}       scope    thisArg (defaults to current item)
+     * @param  {*=}       breaker  value for which if fn returns it, the loop stops (default: false)
      */
-    function each(ob, fn, scope) {
-        if ( !ob ) { return ob; }
+    function each(ob, fn, scope, breaker) {
+
+        if ( null == ob ) { return ob; }
         var i = 0, l = ob.length;
-
+        breaker = void 0 === breaker ? false : breaker; // (default: false)
+        
         // Opt out of the native forEach here b/c we want to:
-        // * support arr-like objects and strings
-        // * default the scope to the current item (or `false` if the item == null)
+        // * have abilty to iterate strings (cannot use `in` on "string")
+        // * default the scope to the current item
         // * return the object for chaining
-        // * be able to break out of the loop by returning `false` in the `fn`
-        // * enable specifying a starting index via the `i` param
+        // * be able to break out of the loop if the fn returns the breaker
 
-        // Array-like: 
-        // Anything other than funcs that have a length *number* incl. 0 but not NaN:
-        if (typeof l === 'number' && typeof ob !== 'function' && l === l) {// last check stuffs NaN
-            while ( i < l ) {// minifies to `for(;i<l;)`, iterates via the `i++` below
-                // If there is no `scope` and `ob[i]` is null or undefined, then send `false` as the
-                // scope to prevent `this` in the callback from unexpectedly resolving to `window`.
-                // If an `i in ob` were to be added here, then "string" types would needed to be
-                // converted to string objects (e.g. Object(ob)) in order to not throw an error. 
-                // Bypassing it makes the loop faster and more capable:
-                if (fn.call(scope || ob[i] || false, ob[i], i++, ob) === false) {
-                    break; // jsperf.com/each-breaker/2
-                }
+        if (typeof l == 'number' && typeof ob != 'function' && l === l) {// last part stuffs NaN
+            while ( i < l ) {// Array-like: 
+                // bypass `i in ob` to make common loops faster and to allow string iteration
+                if ( fn.call( scope || ob[i], ob[i], i++, ob ) === breaker ) { break; }
             }
-            return ob; // chain
+        } else {
+            for ( i in ob ) {// NOT array-like:
+                // bypass "owns" check to maximize capabilty and performance
+                if ( fn.call( scope || ob[i], ob[i], i, ob ) === breaker ) { break; }
+            }
         }
-
-        // NOT array-like: 
-        // functions|plain objects|NaN length|true|number:
-        return eachOwn(ob, fn, scope);
-
-    }
+        return ob;
+    }// each
 
     /**
      * Convert SSV string to array (if not already) and iterate thru its values.
@@ -197,9 +192,9 @@
      * off, one, is called, among other internal usages.
      * @link   jsperf.com/eachssv
      * @param  {Array|string|*}  list   is a space-separated string or array to iterate over
-     * @param  {function(...)}   fn     is the callback - it receives (value, key, ob)
+     * @param  {Function}        fn     is the callback - it receives (value, key, ob)
      */
-    function eachSSV(list, fn) {
+    function eachSSV (list, fn) {
         var l, i = 0;
         list instanceof Array || (list = list.split(' '));
         for (l = list.length; i < l; i++) {
@@ -210,19 +205,16 @@
     }
 
     /**
-     * Local mixin function. See api['mixin'] for the public method.
-     * It augments an object with the properties of another object.
-     * If the `force` param is truthy, props from the `supplier` 
-     * will overwrite existing props on the `receiver`.
-     * @param  {Object|Array|function(...)}  receiver
-     * @param  {Object|Array|function(...)}  supplier
-     * @param  {(boolean|number|*)=}         force
+     * Augment an object with the properties of another object.
+     * @param  {Object|Array|Function}  r   receiver
+     * @param  {Object|Array|Function}  s   supplier
      */
-    function mixin(receiver, supplier, force) {
-        receiver && supplier && eachOwn(supplier, function(v, k){
-            (force || void 0 === receiver[k]) && (receiver[k] = v);
-        });
-        return receiver;
+     function aug (r, s) {
+        var k;
+        for ( k in s ) { 
+            r[k] = s[k]; 
+        }
+        return r;
     }
 
     /**
@@ -238,8 +230,8 @@
         if ( !fns ) { return true; } // ensures the only way to return falsey is via the breaker
         var i = 0, l = fns.length, stop = void 0 !== breaker;
         stop || (breaker = 0); // breaker is disregarded w/o stop - do this to simplify the loop
-        for (args = args || []; i < l; i++) {
-            if (typeof fns[i] === 'function' && fns[i].apply(scope, args) === breaker && stop) {
+        for ( args = args || []; i < l; i++ ) {
+            if (typeof fns[i] == 'function' && fns[i].apply(scope, args) === breaker && stop) {
                 // break by returning `false` so that `applyAll` can be used to break out of `each`
                 return false;
             }
@@ -256,40 +248,39 @@
      */
     function getId(item) {
         var id; // initially undefined
-        if (!item) { return id; }
-        if (item.nodeType && item.getAttribute && item.setAttribute ) {// DOM elements:
+        if ( !item ) { return id; }
+        if ( item.nodeType && item.getAttribute && item.setAttribute ) {// DOM elements:
             (id = item.getAttribute(uidAttr)) || item.setAttribute(uidAttr, (id = uid++));
             return id;
         }
-        return (typeof item !== 'object' && typeof item !== 'function' ? id // undefined
+        return (typeof item != 'object' && typeof item != 'function' ? id // undefined
                 : (item === doc ? 'd' : item === win ? 'w' : item === root ? 'r' // document|window|root
                 : (item[uidProp] = item[uidProp] || uid++))); // other objects/funcs
     }
 
     /**
      * Get or set arbitrary data associated with an object.
-     * @param  {(Object|Array|function(...))}  obj
-     * @param  {(string|Object)=}              key
-     * @param  {*=}                            val
+     * @param  {Object|Array|Function}  obj
+     * @param  {(string|Object)=}       key
+     * @param  {*=}                     val
      */    
     function data(obj, key, val) {
         var id = getId(obj), hasVal = arguments.length > 2;
         if ( !id || (hasVal && key == null) ) {
             throw new TypeError('@data'); 
         }
-        dataMap[id] = dataMap[id] || {}; // initialize if needed
+        dataMap[id] = dataMap[id] || { "__proto__": null }; // initialize if needed
         if ( key == null ) {// GET invalid OR all
-            return key === null ? void 0 : mixin({}, dataMap[id], 1);
+            return key === null ? void 0 : aug({}, dataMap[id]);
         }
         if ( hasVal ) {
             dataMap[id][key] = val; // SET (single)
-            return obj;
+            return val; // return the current val
         }
-        if ( typeof key !== 'object' ) {
+        if ( typeof key != 'object' ) {
             return dataMap[id][key]; // GET (single)
         }
-        mixin(dataMap[id], key, 1); // SET (multi)
-        return obj;
+        aug(dataMap[id], key); // SET (multi)
     }
 
     /**
@@ -305,7 +296,7 @@
             if (id && dataMap[id]) {
                 if ( arguments.length < 2 ) {// delete all data:
                     delete dataMap[id]; 
-                } else if ( typeof keys === 'number' ) {// numbers:
+                } else if ( typeof keys == 'number' ) {// numbers:
                     delete dataMap[id][keys]; 
                 } else if ( keys ) {// strings:
                     eachSSV(keys, function(k){
@@ -321,9 +312,9 @@
      * Remove event handlers from the internal eventMap. If `fn` is not specified,
      * then remove all the event handlers for the specified `type`. If `type` is 
      * not specified, then remove all the event handlers for the specified `node`.
-     * @param  {Object|*}          node
-     * @param  {(string|null)=}    type
-     * @param  {function(...)=}    fn
+     * @param  {Object|*}         node
+     * @param  {(string|null)=}   type
+     * @param  {Function=}        fn
      */
     function cleanEvents(node, type, fn) {
         if (!node) { return; }
@@ -357,20 +348,21 @@
      * @param {*}  item  is the item or collection of items whose data you want to purge.
      */
     function cleanData (item) {
-        if ( !item ) { 
-            return item; 
-        }
+        var i;
+        if ( !item ) { return; }
         removeData(item);
-        if (typeof item === 'object') {
+        if (typeof item == 'object') {
             cleanEvents(item);
             if (item.nodeType && item.removeAttribute) {
                 item.removeAttribute(uidAttr);
-            } else if (item.length && typeof item.length === 'number') {
-                each(item, cleanData); // Go deep. . .
+            } else {
+                i = item.length;
+                if (typeof i == 'number') {// Go deep. . .
+                    while ( i-- ) { cleanData(item[i]); }
+                }
             }
         }
         void 0 === item[uidProp] || (delete item[uidProp]) || (item[uidProp] = void 0);
-        return item;
     }
 
     /**
@@ -392,9 +384,9 @@
         var isSupported;
         eventName = 'on' + eventName;
 
-        if ( !node || typeof node === 'string' ) {
+        if ( !node || typeof node == 'string' ) {
             node = doc.createElement(node || 'div');
-        } else if ( typeof node !== 'object' ) {
+        } else if ( typeof node != 'object' ) {
             return false; // `node` was invalid type
         }
 
@@ -411,7 +403,7 @@
             if (node.setAttribute && node.removeAttribute) {
                 // Test via hack:
                 node.setAttribute(eventName, '');
-                isSupported = typeof node[eventName] === 'function';
+                isSupported = typeof node[eventName] == 'function';
 
                 // Cleanup:
                 if (node[eventName] != null) {
@@ -428,23 +420,24 @@
 
     /**
      * Adapter for handling 'event maps' passed to `on`, `off`, and `one`
-     * @param {Object|*}      list   an events map (event names as keys and handlers as values)
-     * @param {function(...)} method the function to call on each event event pair (`on`, `off`, or `one`)
-     * @param {(Object|*)=}   node   is the element or object to attach the events to
+     * @param {Object|*}     list   an events map (event names as keys and handlers as values)
+     * @param {Function}     method the function to call on each event event pair (`on`, `off`, or `one`)
+     * @param {(Object|*)=}  node   is the element or object to attach the events to
      */
     function eachEvent(list, method, node) {
-        eachOwn(list, function(handler, type){
-            handler && method(node, type, handler);
-        });
+        var name;
+        for ( name in list ) {
+            method(node, name, list[name]);
+        }
     }
     
     /**
      * Get a new function that calls the specified `fn` with the specified `scope`. We 
      * use this to normalize event handlers in non-standard browsers. It is similar to 
      * the native .bind()'s simplest usage.
-     * @param  {function(...)} fn     is the function to normalize
-     * @param  {*=}            scope  is the thisArg (defaults to `window` if not provided)
-     * @return {function(...)}
+     * @param  {Function}   fn      is the function to normalize
+     * @param  {*=}         scope   is the thisArg (defaults to `window` if not provided)
+     * @return {Function}
      */
     function normalizeScope(fn, scope) {
         function normalized() {
@@ -461,24 +454,30 @@
 
     /**
      * on()    Attach an event handler function for one or more event types to the specified node.
-     * @param  {Object}           node    is the element|document|window|object to attach events to
-     * @param  {string|Object}    types   one or more space-separated event names, or an events map
-     * @param  {function(...)=}   fn      the callback to fire when the event occurs
+     * @param  {Object}          node    is the element|document|window|object to attach events to
+     * @param  {string|Object}   types   one or more space-separated event names, or an events map
+     * @param  {Function=}       fn      the callback to fire when the event occurs
      */    
     function on(node, types, fn) {
-        // jQuery bans text/comment nodes, which makes sense, so we do the same:
-        // The false "shorthand" has no effect here.
-        if ( !node || node.nodeType === 3 || node.nodeType === 8 || false === fn ) { return; }
-        var id, isMap = !fn && typeof types === 'object';
-
-        if (types == null 
-         || typeof node !== 'object'
-         || (typeof fn !== 'function' && !isMap)
-         ){ throw new TypeError('@on'); }
+    
+        // Don't deal w/ text/comment nodes (for jQuery-compatibility)
+        // jQuery's `false` "shorthand" has no effect here.            
+        if ( !node || 3 === node.nodeType || 8 === node.nodeType ) { return; }
+        var id, isMap = !fn && typeof types == 'object';
+        if ( null == types || typeof node != 'object' ) { 
+            throw new TypeError('@on'); 
+        }
 
         if ( isMap ) {
             eachEvent(types, on, node); 
-        } else if (id = getId(node)) {
+        } else {
+            if ( false === fn ) { 
+                fn = returnFalse; 
+            } else if ( !fn ) { 
+                return; 
+            }
+            id = getId(node);
+            if ( !id ) { return; }
 
             fn[uidProp] = fn[uidProp] || uid++; // add identifier
             eventMap[id] = eventMap[id] || []; // initialize if needed
@@ -521,24 +520,25 @@
      * off()   Remove an event handlers added via on() from the specified node. If `fn` is
      *         not specified, then remove all the handlers for the specified types. If `types`
      *         is not specfied, then remove *all* the handlers from the specified node.
-     * @param  {Object}            node     is the element|document|window|object to remove events from
-     * @param  {(string|Object)=}  types    one or more space-separated event names, or an events map
-     * @param  {function(...)=}    fn       the event handler to remove
+     * @param  {Object}           node    is the element|document|window|object to remove events from
+     * @param  {(string|Object)=} types   one or more space-separated event names, or an events map
+     * @param  {Function=}        fn      the event handler to remove
      */
     function off(node, types, fn) {
-        if ( !node || node.nodeType === 3 || node.nodeType === 8 || false === fn ) { return; }
-        if (typeof node !== 'object') { 
+        if ( !node || 3 === node.nodeType || 8 === node.nodeType ) { return; }
+        if ( false === fn ) { fn = returnFalse; }
+        if ( typeof node != 'object' ) { 
             throw new TypeError('@off'); 
         }
         if ( types == null ) {// Remove all:
             cleanEvents(node, types, fn); 
         } else {
-            if ( !fn && typeof types === 'object' ) {// Map: 
+            if ( !fn && typeof types == 'object' ) {// Map: 
                 eachEvent(types, off, node); 
             } else {
                 eachSSV(types, function(type) {
                     var typ = type.split('.')[0]; // w/o namespace
-                    if (typeof fn === 'function' && hasEvent(typ, node)) {
+                    if (typeof fn == 'function' && hasEvent(typ, node)) {
                         rem(node, typ, fn);
                     }
                     cleanEvents(node, type, fn);
@@ -549,19 +549,19 @@
 
     /**
      * one()   Add an event handler that only runs once and is then removed.
-     * @param  {Object}           node   is the element|document|window|object to add events to
-     * @param  {string|Object}    types  one or more space-separated event names, or an events map
-     * @param  {function(...)=}   fn     the event handler to add (runs only once)
+     * @param  {Object}         node   is the element|document|window|object to add events to
+     * @param  {string|Object}  types  one or more space-separated event names, or an events map
+     * @param  {Function=}      fn     the event handler to add (runs only once)
      */
     function one(node, types, fn) {
-        if (!fn && typeof types === 'object') {
+        if ( null == fn && typeof types == 'object' ) {
             eachEvent(types, one, node);
         } else {
             var actualHandler;
-            on(node, types, actualHandler = function(){
+            on(node, types, (actualHandler = function(){
                 off(node, types, actualHandler);
-                fn.apply(node, arguments);
-            });
+                return fn !== false && fn.apply(node, arguments);
+            }));
         }
     }
 
@@ -571,25 +571,29 @@
      * browser's native actions for the event. To do so would take a lot more code. 
      * In that respect it works like jQuery.fn.triggerHandler, but elo.fn.trigger
      * works like jQuery.fn.trigger otherwise (e.g. it operates on the whole set). 
-     * @param  {Object}  node  is the element or object to trigger the event for
-     * @param  {string}  type  is an event name to trigger (namespaces are supported)
-     * @param  {Array=}  args  is an array of extra parameters to provide to the handler.
-     *                         The handlers receive (eventData, args[0], args[1], ...)
+     * @param  {Object}  node   is the element or object to trigger the event for
+     * @param  {string}  type   is an event name to trigger (namespaces are supported)
+     * @param  {Array=}  extras is an array of extra parameters to provide to the handler.
+     *                          The handlers receive (eventData, extras[0], extras[1], ...)
      */
-    function trigger(node, type, args) {
-        if ( !node || node.nodeType === 3 || node.nodeType === 8 ) { return; }
-        if ( type == null || typeof node !== 'object' ) { throw new TypeError('@trigger'); }
-        var id = getId(node), typ = type.split('.')[0], key = 'on' + type, eventData = {};
-        // Emulate the native and jQuery arg signature for event listeners
-        // (supplying an object as first arg) but only supply a few props
-        // (The `node` becomes the `this` value inside the handler.)
-        eventData['type'] = typ; // type w/o namespace
+    function trigger (node, type, extras) {
+    
+        if ( !type || !node || 3 === node.nodeType || 8 === node.nodeType ) { return; }
+        if ( typeof node != 'object' ) { throw new TypeError('@trigger'); }
+        var eventData = {}, id = getId(node), args;
+        if ( !id || !eventMap[id] ) { return; }
+        
+        // Emulate the native and jQuery arg signature for event listeners,
+        // supplying an object as first arg, but only supply a few props.
+        // The `node` becomes the `this` value inside the handler.
+
+        eventData['type'] = type.split('.')[0]; // w/o namespace
         eventData['isTrigger'] = true;
-        // eventData['data'] = $hook['trigger-data'] ? $hook['trigger-data'].call(node, type) : false;
-        if (args){
-            args.unshift(eventData);  // (`args` *must* be an array)
-        } else { args = [eventData]; }
-        eventMap[id] && applyAll(eventMap[id][key], node, args);
+        args = [eventData];
+        extras && args.push.apply(args, extras);
+
+        applyAll(eventMap[id]['on' + type], node, args);
+
     }
 
     // START domReady
@@ -598,8 +602,8 @@
 
     /* 
      * Push the readyStack or, if the DOM is already ready, fire the `fn`
-     * @param {function(...)}  fn   the function to fire when the DOM is ready
-     * @param {Array=}  argsArray   is an array of args to supply to `fn` (defaults to [api])
+     * @param  {Function}  fn         the function to fire when the DOM is ready
+     * @param  {Array=}    argsArray  is an array of args to supply to `fn` (defaults to [api])
      */
     function pushOrFire(fn, argsArray) {
         if (isReady) {
@@ -640,8 +644,8 @@
      * Define our local `domReady` method:
      * The `argsArray` parameter is for internal use (but extendable via domReady.remix())
      * The public methods are created via remixReady()
-     * @param {function(...)}  fn   the function to fire when the DOM is ready
-     * @param {Array=}  argsArray   is an array of args to supply to `fn` (defaults to [api])
+     * @param {Function}  fn         the function to fire when the DOM is ready
+     * @param {Array=}    argsArray  is an array of args to supply to `fn` (defaults to [api])
      */
     domReady = !needsHack ? pushOrFire : function(fn, argsArray) {
         if ( self != top) {
@@ -658,36 +662,39 @@
      * exposed as a prop on the outputted ready method itself so that devs have a
      * way to bind the ready function to a host lib and/or customize (curry) the
      * args supplied to the ready function.
-     * @param  {...}  args   are zero or more args that fns passed to ready will receive
-     * @return {function(...)}
+     * @param  {...}   args   are zero or more args that fns passed to ready will receive
+     * @return {Function}
      */    
     function remixReady(args) {
-        
-        // The `args` are supplied to the remixed ready function:
-        // We default to [this] for integration purposes (see mixout)
-        args = arguments.length ? slice.call(arguments) : [this];
 
-        function ready(fn) {
+        // The `args` are supplied to the remixed ready function:
+        args = slice.call(arguments);
+
+        function ready (fn) {
             domReady(fn, args); // call the local (private) domReady method, which takes args
-            return this !== win && this; // chain an instance or a parent but never the window
+            if (this !== win) { return this; } // chain instance or parent but never window
         }
 
-        ready['remix'] = remixReady; // add the remix function itself as method on the method
+        // put the remix function itself as method on the method
+        ready['remix'] = remixReady; 
+        ready['relay'] = function ($) { 
+            return remixReady($ || void 0); 
+        };
         return ready; // the actual domReady/.ready method that elo exposes
     }
 
     // Build the public domReady/.ready methods. (We include a top-level .ready alias.
     // Keep that in mind when integrating w/ libs that aim to be jQuery-compatible b/c
     // jQuery uses jQuery.ready privately for something else and here all 3 are aliased.)
-    api['ready'] = api['domReady'] = api[FN]['ready'] = remixReady(api);
+    //api['ready'] = api['domReady'] = api['fn']['ready'] = remixReady(api);
+    api['domReady'] = api['fn']['ready'] = eloReady = remixReady(api);
 
     // END domReady
     
     // Top-level only
-    // Also see bridge() / noConflict() / mixin() / mixinEvent() defined below.
     api['applyAll'] = applyAll;
-    api['hasEvent'] = hasEvent; // if we made an effin, it'd probably be a filter, but nah
-    api['qsa'] = qsa;   // not bridged (but expose so other modules can use it)
+    api['hasEvent'] = hasEvent;
+    api['qsa'] = queryEngine;   
 
     // Top-level + chainable
     // The top-level version are the simple (singular) versions defined above. (They 
@@ -701,7 +708,7 @@
     api['off'] = off;
     api['one'] = one; 
     api['trigger'] = trigger;
-    
+
     // Top-level + chainable (more)
     // The effin versions of these are made manually below
     api['each'] = each;
@@ -710,12 +717,12 @@
     /** 
      * Utility for converting simple static methods into their chainable effin versions.
      * @link   jsperf.com/wrapperized-methods/3
-     * @param  {function(...)}  fn
-     * @return {function(...)}
+     * @param  {Function}  fn
+     * @return {Function}
      */
     function wrapperize(fn) {
         return function () {
-            var i = 0, l = this.length, args = [0];
+            var i = 0, args = [0], l = this.length;
             args.push.apply(args, arguments);
             while ( i < l ) {
                 null == (args[0] = this[i++]) || fn.apply(this, args); 
@@ -724,26 +731,26 @@
         };
     }
 
-    // AddToWrapper
     // Build effin versions of these static methods. (This must happen before bridge() is called.)
     eachSSV('addEvent removeEvent on off one trigger removeData', function (methodName) {
-        api[FN][methodName] = wrapperize(api[methodName]);
+        api['fn'][methodName] = wrapperize(api[methodName]);
     });
 
     // It's easier to convert the rest manually:
     
     /**
      * .each()
-     * @param  {function(...)}  fn     is the callback - it receives (value, key, ob)
-     * @param  {*=}             scope  thisArg (defaults to current item)
+     * @param  {Function}  fn     is the callback - it receives (value, key, ob)
+     * @param  {*=}        scope  thisArg (defaults to current item)
      */
-    api[FN]['each'] = function (fn, scope) { 
+    api['fn']['each'] = function (fn, scope) {
         return each(this, fn, scope); 
     };
-    
-    api[FN]['cleanData'] = function (inclInstance) {
-        return true === inclInstance ? cleanData(this) : each(this, cleanData);
-    };
+
+    // In elo 1.4+ the cleanData method is only directly avail on the top-level.
+    // api['fn']['cleanData'] = function (inclInstance) {
+    //    return true === inclInstance ? cleanData(this) : each(this, cleanData);
+    // };
 
     /**
      * Fire every function in `this` **OR** fire one or more 
@@ -755,7 +762,7 @@
      * $(els).applyAll(fnsArray, args, false) //< able to break firing on current el and move onto the next el
      * $(els).applyAll(fnsArray, args, false, false) //< able to break "hard" (break out of both loops)
      */
-    api[FN]['applyAll'] = function(scope, args, breaker, outerContinue) {
+    api['fn']['applyAll'] = function(scope, args, breaker, outerContinue) {
         if (scope instanceof Array) {// Syntax 2:
             // HANDLE: $(els).applyAll([function(a, b, c){   }], [a, b, c]);
             outerContinue = outerContinue !== false; // convert to `each` breaker
@@ -773,7 +780,7 @@
     // but return the instance on sets. This sets the val on each elem
     // in the set vs. the lower-level method that only sets one object.
 
-    api[FN]['data'] = function(key, val) {
+    api['fn']['data'] = function(key, val) {
         var i, n, count = arguments.length, hasVal = 1 < count;
         if ( !count ) {
             // GET-all (return the entire data object if it exists) or else undefined
@@ -783,7 +790,7 @@
         // We have to make sure `key` is not an object (in which case it'd be set, not get)
         // Strings created by (new String()) are treated as objects. ( bit.ly/NPuVIr )
         // Also remember that `key` can be a `number` too.
-        if ( !hasVal && typeof key !== 'object' ) { // GET
+        if ( !hasVal && typeof key != 'object' ) { // GET
             // Expedite simple gets by directly grabbing from the dataMap.
             // Return the value (if it exists) or else undefined:
             return (i = getId(this[0])) && dataMap[i] ? dataMap[i][key] : void 0;
@@ -795,178 +802,156 @@
         }
         return this;
     };
-
     
-    // START Hook 
-    /** @constructor */ function Hook() {} // empty constructor
-    Hook.prototype = {}; // = default hooks =
-    Hook.prototype['api'] = domReady;
-    Hook.prototype['select'] = qsa;
-    $hook = new Hook; // initialize (make empty object that inherits the defaults)
-
-    /** 
-     * Method for setting/getting hooks:
-     * @param  {*=}  key
-     * @param  {*=}  val
-     * @param  {*=}  iter
-     */
-    function hook(key, val, iter) {
-        var temp, clone; 
-        if (iter) {// flip args for (v, k, ob)
-            temp = key;
-            key = val;
-            val = temp;
-        }
-        if (arguments.length < 2) {
-            if (typeof key === 'object' && key) {//SET-multi
-                each(key, hook);
-            } else if (typeof key !== 'boolean'){// GET-all or GET-simple
-                return void 0 === key ? mixin(new Hook, $hook) : $hook[key];
-            }
-            // HANDLE `hook(true)` and `hook(false)`:
-            if (key) {// RESTORE defaults
-                each(Hook.prototype, function(v, k){ delete $hook[k]; });
-            } else {// BURN all:
-                each($hook, function(v, k){ hook(k, false); }); 
-            }
-        } else {
-            if (typeof val === 'function') {
-                // update the hook, provided it has not been "burned"
-                true === burned[key] || ($hook[key] = val);
-            } else if (typeof val === 'boolean' && $hook[key]) {
-                // true  => restore the default hook
-                // false => burn the hook at its current state
-                val ? (delete $hook[key]) : (burned[key] = true);
+    // I'm debating including this b/c of its ties to internal data.
+    // It's commented out now, but may be added in the future.
+    // Let me know if you think it should be added @ryanve
+    /*api['fn']['empty'] = function() {// adapted from jQuery.fn.empty
+        var i, node;
+        for ( i = 0; (node = this[i]) || i < this.length; i++ ) {
+            if ( node ) {
+                if ( 1 === node.nodeType ) {
+                    // clean child elems to prevent memory leaks
+                    cleanData(node.getElementsByTagName('*'));
+                }
+                while ( node.firstChild ) {
+                    // remove child elems
+                    node.removeChild( node.firstChild );
+                }
             }
         }
         return this;
-    }
-    // expose the hook() method:
-    hook['mute'] = true;
-    api['hook'] = hook;
-    // END Hook
+    };*/
 
     /**
-     * mixin()   Augment `this` with methods from an object.
-     * @param    {Object}               ob     an object containing methods to mixin
-     * @param    {(boolean|number|*)=}  force  whether to overwrite existing methods
+     * dubEvent()  Add event shortcut methods to the chain (specified in a SSV list or array)
+     * @since      1.4 (formerly mixinEvent()) 
+     * @param      {Array|string}  list   array or SSV string of shortcut names
+     * @param      {boolean=}      force  whether to overwrite existing methods (default: false)
+     * @link       developer.mozilla.org/en/DOM_Events
+     * @example    $.dubEvent('resize scroll focus')  // creates $.fn.resize, ...
      */
-    api['mixin'] = api[FN]['mixin'] = function (ob, force) {
-        if (!ob || !this || this === win) { throw new TypeError('@mixin'); }
-        return mixin(this, ob, force); // Delegate to the local mixin func.
-    };
-
-    /**
-     * mixinEvent()  Add event shortcut methods to the chain (specified in a SSV list or array)
-     *
-     * @param    {Array|string} list     array or SSV string of shortcut names
-     * @param    {boolean=}     force    whether to overwrite existing methods (default: false)
-     * @example  $.mixinEvent('resize scroll focus')  // creates $.fn.resize, ...
-     */
-    api['mixinEvent'] = function (list, force) {
-        if (!list || !this || this === win) { throw new TypeError('@mixinEvent'); }
-        var receiver = typeof this === 'function' ? this[FN] || this : this;
-        eachSSV(list, function(name) {
-            if (force || void 0 === receiver[name]) {
-                receiver[name] = function (handler) {// event shortcut
-                    return arguments.length ? this['on'](name, handler) : this['trigger'](name);
-                };
-            }
+    function dubEvent (list, force) {
+        if ( this === win ) { return; }
+        var receiver = this;
+        force = true === force;
+        list && eachSSV(list, function (n) {
+            (force || void 0 === receiver[n]) && (receiver[n] = function (fn) {
+                return arguments.length ? this['on'](n, fn) : this['trigger'](n);
+            });
         });
-        return this;
-    };
-
-    // Utility for augmenting a host with the api's methods. This private mixout func
-    // prevents mixing out anything that's not a function. Our 'fn', 'selector', 'length'
-    // etc. props are caught by that. There are a few others that we blacklist via
-    // the 'mute' prop. See usage from bridge()
-    
-    function mixout(supplier, receiver, force, scope) {
-        // signature of this is the reverse of local mixin
-        // when converted to a method, `this` => supplier,
-
-        var n;
-        scope = scope || (typeof receiver === 'function' ? receiver : api);
-        // the `scope` should be the host api func ($), for use w/ remix props
-
-        for (n in supplier) {
-            (supplier.hasOwnProperty(n)
-            && typeof supplier[n] === 'function' // methods only
-            && (force || void 0 === receiver[n])
-            && true !== supplier[n]['mute']      // filter out "muted" methods
-            && (receiver[n] = supplier[n]['remix'] ? supplier[n]['remix'].call(scope) : supplier[n]));
-        }
-
-        return this;
+        return receiver;
     }
-
-    api['mixout'] = api[FN]['mixout'] = function(receiver, force, scope) {
-        if ( !receiver || !this || this === win ){ throw new TypeError('@mixout'); }
-        mixout(this, receiver, force, scope);
-        return this;
-    };
+    api['fn']['dubEvent'] = dubEvent;
 
     /**
-     * bridge()       Handler for integrating (mixing out) methods into a host. It
-     *                augments the host with only the intended methods. If the host is
-     *                jQuery-compatible, then it'll also get the chainable methods.
-     *                Existing methods on the host are not overwritten unless the
-     *                `force` param is set to a truthy value.
-     * 
-     * @param {Object|function()}   host    any object or function
-     * @param {boolean=}            force   indicates whether existing methods on the host 
-     *                                      should be overwritten (default: false)
-     * @param {number=}             flag    1: top-level only, 2: effins only
+     * **** $.bridge comes from @link github.com/ryanve/dj *****
+     * $.bridge()    Integrate applicable methods|objects into a host. Other 
+     *               types (number|string|undefined|boolean|null) are not bridged. 
+     *               `this` augments the receiver `r`. `bridge()` is designed for
+     *               merging jQueryish modules, thus `.fn` props bridge one level deep.
+     *
+     *               Methods|objects whose `.relay` property is set to `false` get
+     *               skipped. If the `.relay` property is a function, it is fired 
+     *               with `this` being the method|object and the 1st arg being the 
+     *               main scope (e.g. $ function) of the receiving api. This provides
+     *               a way for the method|object to be adapted to the receiving api.
+     *
+     *               If the `.relay` returns a truthy value (such as new func) then that 
+     *               value is transferred instead of the orig. If the relay returns `false` 
+     *               then the method|ob is skipped. If it returns any other falsey value 
+     *               then the transferred method will default back to the orig. So in effect, 
+     *               the `.relay` prop defaults to `true` and it is not necessary to define 
+     *               it for methods|obs that are to be transferred as is.
+     *       
+     * @this  {Object|Function}                supplier
+     * @param {Object|Function}         r      receiver
+     * @param {boolean=}                force  whether to overwrite existing props (default: false)
+     * @param {(Object|Function|null)=} $      the top-level of the host api (default: `r`)
+     *                                         For default behavior `$` should be omitted or set to 
+     *                                         `undefined`. This param allows you to bridge to a receiver, 
+     *                                         but relay methods based on a another host, for example 
+     *                                         `someModule.bridge({}, false, jQuery)`. Set `$` explicity
+     *                                         to `null` *only* if you want to communicate to relays that
+     *                                         there should be *no* main api.                                   
      */
-    function bridge(host, force, flag) {
-        var supplier = typeof this === 'function' ? this : api; // allow binding
-        if (host instanceof Object) {
-            2 !== flag && mixout(supplier, host, force, host); // top-level
-            1 !== flag && typeof host === 'function' && host[FN] && mixout(supplier[FN], host[FN], force, host);
+    function bridge ( r, force, $ ) {
+
+        var v, k, relay, custom, s = this; // s is the supplier
+        if ( !r || !s || s === win ) { return; }
+        custom = s['bridge']; // supplier may have custom bridge
+
+        if ( typeof custom == 'function' && custom['relay'] === false ) {
+            custom.apply(this, arguments);
+            return r;
         }
-        return supplier;
-    }
-    bridge['mute'] = true;
+        
+        force = true === force; // require explicit true to force
+        $ = typeof $ == 'function' || typeof $ == 'object' ? $ : r; // allow null
+
+        for ( k in s ) {
+            v = s[k];
+            if ( typeof v == 'function' || typeof v == 'object' && v ) {
+                if ( 'fn' === k && v !== s ) {
+                    // 2nd check above prevents infinite loop 
+                    // from `.fn` having ref to self on it.
+                    bridge.call(v, r[k], force, $);
+                } else if ( force ? r[k] !== r && r[k] !== $ : r[k] == null ) {
+                    // The check above prevents overwriting receiver's refs to
+                    // self (even if forced). Now handle relays and the transfer:
+                    relay = v['relay'];
+                    if ( typeof relay == 'function' ) {
+                        // Fire relay functions. I haven't fully solidified the
+                        // relay call sig. Considering: .call(v, $, r[k], k, r)
+                        // This passes the essentials:
+                        relay = relay.call(v, $, r[k]);
+                    }
+                    if ( relay !== false ) {// Provides a way to bypass non-agnostic props.
+                        // Transfer the value. Default to the orig supplier value:
+                        r[k] = relay || v;
+                    }
+                }
+            }
+        }
+        
+        return r; // receiver
+
+    }// bridge
+    
+    // signify that this bridge() is module agnostic
+    bridge['relay'] = true;
     api['bridge'] = bridge;
-    
 
     /**
-     * @param   {Object=}             root
-     * @param   {(Object|Function)=}  api
-     * @param   {string=}             name
-     * @param   {string=}             alias
-     * @return  {Function|boolean}
+     * @param  {Object|Function}  api
+     * @param  {Object|Function}  root
+     * @param  {string}           name
+     * @param  {string=}          alias
      */
-    function noConflictRemix(root, api, name, alias) {
+    function noConflictRemix(api, root, name, alias) {
 
-        if ( !root || !name || !api ) { return false; }
+        if ( !root || !name || !api ) { return; }
         var old = root[name], viejo;
-        alias = typeof alias === 'string' && alias;
+        alias = typeof alias == 'string' && alias;
         viejo = alias && root[alias];
 
-        /**
-         * noConflict()  Destroy the global and return the api. Optionally call 
-         *               a function that gets the api supplied as the first arg.
-         * @param        {Function=}  fn   optional callback function
-         */
         function noConflict(fn) {
             alias && api === root[alias] && (root[alias] = viejo);
             (fn || !alias) && api === root[name] && (root[name] = old);
-            typeof fn === 'function' && fn.call(root, api, name, alias); 
+            typeof fn == 'function' && fn.call(root, api, name, alias); 
             return api;
         }
 
-        noConflict['mute'] = true;
+        noConflict['relay'] = false;
         noConflict['remix'] = noConflictRemix;
 
         return noConflict;
     }
-    api['noConflict'] = noConflictRemix(root, api, name);
+    api['noConflict'] = noConflictRemix(api, root, name, '$');
 
     // api.eventMap = eventMap; // only for testing
     // api.dataMap = dataMap;   // only for testing
 
-    // Bridge into a host like ender if avail
-    return bridge(host);
+    return api;
 
 })); // factory and closure

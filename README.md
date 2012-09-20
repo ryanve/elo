@@ -5,7 +5,7 @@
 
 # elo()
 
-The `elo()` function is a simple OO **wrapper** that works like the jQuery function.
+The `elo()` function is a simple OO **wrapper** that works very much like the jQuery function.
 
 ```js
 elo(element)       // wrap a DOM element (all browsers)
@@ -15,19 +15,26 @@ elo(selector)      // wrap element(s) matched by a selector string (uses querySe
 elo(function($){   }); // ready shortcut (receives elo as its 1st arg, this === document)
 ```
 
+**elo** does not claim the `$` namespace, it can be used as such:
+
+(function ($) {
+	// $ as alias for elo in here
+}(elo));
+
+**In the docs below:** `$` represents `elo`
+
 # domReady
 	
 Call a function when the DOM is ready:
 
 ```js
-elo.domReady(function($){ 
-	/* ($ === elo) and (this === document) in here */ 
+$.domReady(function ($) {
+	/* (this === document) in here */ 
 });
 ```
 
 ```js 
-elo(document).ready(function($){
-	/* ($ === elo) and (this === document) in here */ 
+$(document).ready(function ($) {
 });
 ```
 
@@ -42,16 +49,13 @@ elo(document).ready(function($){
 - $.data(elem, [, key , value])
 - $.removeData(elem, [, keys])
 
-// 
 
 - $.cleanData(obj)
-- $.each(obj, callback [, thisArg])
+- $.each(obj, callback [, thisArg, breaker])
 - $.hasEvent(eventName [, tagNameOrElement])
 - $.applyAll(stack [, thisArg, argsArray])
-- $.mixin(supplier [, force])
-- $.mixinEvent(eventShortcutNamesSSV)
-- elo.noConflict(opt_callback)
-- elo.bridge(receiver [, force])
+- $.dubEvent(eventShortcutNamesSSV)
+- $.bridge(receiver [, force]) // integrate $ into receiver
 
 # effins
 
@@ -62,17 +66,7 @@ elo(document).ready(function($){
 - $(elems).one(eventName, handler)
 - $(elems).trigger(eventName [, extraParamsArray])
 - $(elems).data(key [, value])
-
-//
-
-- $(elems).each(callback [, thisArg])
-- $.fn.mixin(supplier [, force])
-
-I'm still working on these docs, but the [source](https://github.com/ryanve/elo/blob/master/elo.js) is already documented, and you can see all the methods if you do:
-
-```js
-console.log(elo.mixin.call({}, elo));
-```
+- $(elems).each(callback [, thisArg, breaker])
 
 # Compatibility
 

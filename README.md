@@ -31,12 +31,13 @@ Call a function when the DOM is ready:
 
 ```js
 $.domReady(function ($) {
-	/* (this === document) in here */ 
+    /* (this === document) in here */ 
 });
 ```
 
 ```js 
 $(document).ready(function ($) {
+    /* (this === document) in here */ 
 });
 ```
 
@@ -50,8 +51,6 @@ $(document).ready(function ($) {
 - $.trigger(elem, eventName [, extraParams])
 - $.data(elem, [, key , value])
 - $.removeData(elem, [, keys])
-
-
 - $.cleanData(obj)
 - $.each(obj, callback [, thisArg, breaker])
 - $.hasEvent(eventName [, tagNameOrElement])

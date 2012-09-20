@@ -12,14 +12,16 @@ elo(element)       // wrap a DOM element (all browsers)
 elo(elementArray)  // wrap NodeList or array of elements  (all browsers)
 elo(tagName)       // wrap element(s) matched by tag name (all browsers)
 elo(selector)      // wrap element(s) matched by a selector string (uses querySelectorAll)
-elo(function($){   }); // ready shortcut (receives elo as its 1st arg, this === document)
+elo(function ($) {   }); // ready shortcut (receives elo as its 1st arg, this === document)
 ```
 
-**elo** does not claim the `$` namespace, it can be used as such:
+**elo** does not claim the `$` namespace, however it can be used as such:
 
+```js
 (function ($) {
-	// $ as alias for elo in here
+    // $ as alias for elo in here
 }(elo));
+```
 
 **In the docs below:** `$` represents `elo`
 

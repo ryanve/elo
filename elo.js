@@ -248,7 +248,7 @@
      */
     function getId(item) {
         var id; // initially undefined
-        if ( !item ) { return id; }
+        if ( !item ) { return; }
         if ( item.nodeType && item.getAttribute && item.setAttribute ) {// DOM elements:
             (id = item.getAttribute(uidAttr)) || item.setAttribute(uidAttr, (id = uid++));
             return id;

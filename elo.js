@@ -100,7 +100,7 @@
     * @constructor
     * @param  {*=}       item 
     * @param  {Object=}  root 
-    * adapted from jQuery and ender.no.de
+    * adapted from jQuery and ender
     */
     function Api (item, root) {
         var i = 0;

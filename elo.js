@@ -1,11 +1,9 @@
 /*!
- * elo          elo is lo-fi cross-browser Javascript events and data module
- *              designed for extendabilty. It can be used as standalone lib  
- *              or integrated into a jQuery-like host such as ender.no.de.
- * @author      Ryan Van Etten (c) 2012
- * @link        http://github.com/ryanve/elo
+ * elo          cross-browser JavaScript events and data module
+ * @author      Ryan Van Etten
+ * @link        elo.airve.com
  * @license     MIT
- * @version     1.4.1
+ * @version     1.5.0
  */
 
 /*jslint browser: true, devel: true, node: true, passfail: false, bitwise: true, continue: true
@@ -804,25 +802,20 @@
         return this;
     };
     
-    // I'm debating including this b/c of its ties to internal data.
-    // It's commented out now, but may be added in the future.
-    // Let me know if you think it should be added @ryanve
-    /*api['fn']['empty'] = function() {// adapted from jQuery.fn.empty
+    // Include this b/c of it relates to internal data.
+    // adapted from jQuery.fn.empty
+    api['fn']['empty'] = function() {
         var i, node;
-        for ( i = 0; (node = this[i]) || i < this.length; i++ ) {
-            if ( node ) {
-                if ( 1 === node.nodeType ) {
-                    // clean child elems to prevent memory leaks
-                    cleanData(node.getElementsByTagName('*'));
-                }
-                while ( node.firstChild ) {
-                    // remove child elems
-                    node.removeChild( node.firstChild );
-                }
+        for (i = 0; null != (node = this[i]); i++) {
+            if (1 === node.nodeType) {
+                cleanData(node.getElementsByTagName('*'));
+            }
+            while (node.firstChild) {
+                node.removeChild(node.firstChild);
             }
         }
         return this;
-    };*/
+    };
 
     /**
      * dubEvent()  Add event shortcut methods to the chain (specified in a SSV list or array)

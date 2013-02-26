@@ -1,6 +1,9 @@
 # CHANGELOG | [current](https://github.com/ryanve/elo/blob/master/elo.js)
 
-## 1.4.0 (2012-09-20)
+## 1.5 (2013-02-26)
+- Add `elo.fn.empty()`
+
+## 1.4 (2012-09-20)
 - Data hashes now use null objects (property-less) objects so as not to retrieve methods from `Object.prototype`
 - `elo.data(ob, key, val)` now returns the `val` that was set.
 - `elo.each` now foregoes the `hasOwnProperty`, and has additional breaker capabilities. (See the source.)

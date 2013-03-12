@@ -12,9 +12,10 @@
 , indent: 4, maxerr: 180 */
 
 (function (root, name, factory) {
-    if (typeof module != 'undefined' && module['exports']) { module['exports'] = factory(); } // node
-    else { root[name] = factory(); } // browser
-}(this, 'elo', function () { // factory:
+    if (typeof module != 'undefined' && module['exports']) { 
+        module['exports'] = factory(); 
+    } else { root[name] = factory(); }
+}(this, 'elo', function() {
 
     // elo takes much inspiration from:
     // jQuery (jquery.com)
@@ -74,7 +75,7 @@
     // is added, then this local version becomes a ref to $.hook
     // See the source of @link github.com/ryanve/dj
     // It's the best kind of magic.
-    function hook (k) {
+    function hook(k) {
         var realHook = api['hook'];
         if ( !realHook || !realHook['remix'] ) {
             return 'select' === k ? queryEngine : 'api' === k ? eloReady : void 0;
@@ -102,7 +103,7 @@
     * @param  {Object=}  root 
     * adapted from jQuery and ender
     */
-    function Api (item, root) {
+    function Api(item, root) {
         var i = 0;
         this['length'] = 0;
         if ( typeof item == 'function' ) {
@@ -192,7 +193,7 @@
      * @param  {Array|string|*}  list   is a space-separated string or array to iterate over
      * @param  {Function}        fn     is the callback - it receives (value, key, ob)
      */
-    function eachSSV (list, fn) {
+    function eachSSV(list, fn) {
         var l, i = 0;
         list instanceof Array || (list = list.split(' '));
         for (l = list.length; i < l; i++) {
@@ -207,9 +208,9 @@
      * @param  {Object|Array|Function}  r   receiver
      * @param  {Object|Array|Function}  s   supplier
      */
-     function aug (r, s) {
+     function aug(r, s) {
         var k;
-        for ( k in s ) { 
+        for (k in s) { 
             r[k] = s[k]; 
         }
         return r;
@@ -345,7 +346,7 @@
      * Delete **all** the elo data associated with the specified item(s).
      * @param {*}  item  is the item or collection of items whose data you want to purge.
      */
-    function cleanData (item) {
+    function cleanData(item) {
         var i;
         if ( !item ) { return; }
         removeData(item);
@@ -574,7 +575,7 @@
      * @param  {Array=}  extras is an array of extra parameters to provide to the handler.
      *                          The handlers receive (eventData, extras[0], extras[1], ...)
      */
-    function trigger (node, type, extras) {
+    function trigger(node, type, extras) {
     
         if ( !type || !node || 3 === node.nodeType || 8 === node.nodeType ) { return; }
         if ( typeof node != 'object' ) { throw new TypeError('@trigger'); }
@@ -649,8 +650,13 @@
         if ( self != top) {
             pushOrFire(fn, argsArray);
         } else {
-            try { docElem.doScroll('left'); }
-            catch (e) { return setTimeout(function() { domReady(fn, argsArray); }, 50); }
+            try {
+                docElem.doScroll('left'); 
+            } catch (e) {
+                return setTimeout(function() { 
+                    domReady(fn, argsArray); 
+                }, 50); 
+            }
             fn.apply(doc, argsArray || [api]);
         }
     };
@@ -742,7 +748,7 @@
      * @param  {*=}        scope    thisArg (defaults to current item)
      * @param  {*=}        breaker  defaults to `false`
      */
-    api['fn']['each'] = function (fn, scope, breaker) {
+    api['fn']['each'] = function(fn, scope, breaker) {
         return each(this, fn, scope, breaker); 
     };
 
@@ -825,7 +831,7 @@
      * @link       developer.mozilla.org/en/DOM_Events
      * @example    $.dubEvent('resize scroll focus')  // creates $.fn.resize, ...
      */
-    function dubEvent (list, force) {
+    function dubEvent(list, force) {
         if ( this === win ) { return; }
         var receiver = this;
         force = true === force;
@@ -869,7 +875,7 @@
      *                                         to `null` *only* if you want to communicate to relays that
      *                                         there should be *no* main api.                                   
      */
-    function bridge ( r, force, $ ) {
+    function bridge(r, force, $) {
 
         var v, k, relay, custom, s = this; // s is the supplier
         if ( !r || !s || s === win ) { return; }
@@ -947,5 +953,4 @@
     // api.dataMap = dataMap;   // only for testing
 
     return api;
-
-})); // factory and closure
+}));

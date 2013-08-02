@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html class lang="en-US">
+<head>
+    <meta charset="utf-8">
+    <title>elo - test suite</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <meta name="author" content="Ryan Van Etten">
+    <meta name="description" content="JavaScript events library test suite"> 
+    <style>
+        html { font-family:sans-serif; color:#444; background:#fffafa; }
+        body { margin:1em auto; width:94%; font-size:1.1em; }
+        code, kbd, pre, samp { font-family:monospace; font-size:1em; }
+        pre { white-space:pre-wrap; }
+        pre, td, th { padding:1em; text-align:left; }
+        td { font-weight:bold; color:#2aa198 }
+        td:first-child { font-weight:normal; }
+        pre { background:#eee8d5; }
+        .dark pre { background:#073642; }
+    </style>
+
+    <script src="http://airve.github.io/js/modernizr/modernizr.js"></script>
+    <script src="http://airve.github.io/js/aok/aok.min.js"></script>    
+    <script src="http://airve.github.io/js/jeesh/jeesh.min.js"></script>
+    <script src="http://airve.github.io/js/dj/dj.min.js"></script>  
+    <script src="http://airve.github.io/js/vibe/vibe.min.js"></script>  
+    <script src="elo.js"></script>
+
+    <!-- Run the tests in the head to ensure domReady works. -->
+    <script>
+    (function(window, document) {
+        var $ = window.elo
+          , elo = window.elo
+          , effin = elo.fn
+          , dj = window.dj
+          , bean = window.bean
+          , aok = window.aok
+          , log = aok.log
+          , express = aok.express
+          , byId = aok.id
+          , domReady = $.domReady || $
+          , jQuery = window.jQuery
+          , ender = window.ender
+          , docElem = document.documentElement
+          , testDiv = document.createElement('div')
+          , readyTests = []   // tests that need to happen on *ready*
+          , resizeTests = []  // tests that need to happen on *resize*
+          , scrollTests = []  // tests that need to happen on *scroll*
+          , increase = (function(uid) {
+                return function() { 
+                    return ++uid; 
+                };
+            }(0));
+            
+        log(elo.fn);
+        
+        function remark(item, before) {
+            item = '(' + item + ')';
+            return null == before ? item : before + ' ' + item;
+        }
+        
+        function update(tests) {
+            elo.each(tests, aok);
+        }
+        update.resizeTests = function() { update(resizeTests); };
+        update.scrollTests = function() { update(scrollTests); };
+        update.readyTests = function() { update(readyTests); };     
+
+        function aug(receiver, supplier, force) {
+            for (var n in supplier) {
+                if (supplier.hasOwnProperty(n) && null != supplier[n]) {
+                    if (force || null == receiver[n]) {
+                        receiver[n] = supplier[n];
+                    }
+                }
+            }
+            return receiver;
+        }
+
+        jQuery && jQuery.noConflict();
+        
+        // express('hasEvent: ' + (elo.hasEvent('resize', 'a') === Modernizr.hasEvent('resize', 'div')));
+        
+        readyTests.push({
+            id: '$.fn.empty',
+            test: function() {
+                var elem = byId('empty');
+                effin.empty.call([elem]);
+                return !elem.innerHTML;
+            }
+        });
+        
+        readyTests.push({
+            id: 'divHasEvent:blur'
+          , test: function() {
+                return true === ($.hasEvent('blur', testDiv) && $.hasEvent('blur', 'div'));
+            }
+        });
+        
+        // Make sure the $ methods tested are the elo methods:
+        elo && elo.bridge && elo.bridge($, $ !== elo && $ !== window.jQuery);
+        dj && dj.bridge(elo);
+
+        elo(function() {
+            var el = byId('ua');
+            el && (el.innerHTML = navigator.userAgent || '');
+        });
+
+        resizeTests['resize'] = increase;
+        scrollTests['scroll'] = increase
+        
+        // Merge tests by event:
+        readyTests = readyTests.concat(scrollTests, resizeTests); // all of em
+        
+        //$('html').data('foo', 'bar');
+        //express($('html').data('foo'));
+        //$('html').removeData('foo');
+        
+        $(docElem).one('customEvent', function(o, extraParam) {
+            aok({id:'customEventThis', test:this === docElem});
+            aok({id:'customEventType', test:'customEvent' === o.type});
+            aok({id:'customEventArgs', test:'extraParam' === extraParam});
+            aok({id:'customEventTrig', test:true === o.isTrigger});
+        }).trigger('customEvent', ['extraParam']);
+      
+        elo(function($) {
+
+            aok({id:'alias', test:$ === elo});
+            aok({id:'readyScope', test:this === document});
+            aok({ 
+                id:'instanceof'
+              , test:function() {
+                    var $group = elo([elo(), elo(''), elo('div')]);
+                    return $group instanceof elo && $group.each(function() {
+                        return this instanceof elo;
+                    });
+                }
+            });
+            aok({id:'effinSynced', test:function() {
+                    var key, bool = elo.prototype === elo.fn;
+                    if (bool) {
+                        elo.fn[key = 'checkSync'] = 1;
+                        bool = 1 === elo.prototype[key];
+                        delete elo.prototype[key];
+                        bool = bool && !elo.fn.hasOwnProperty(key);
+                    }
+                    return bool;
+                } 
+            });
+            aok({
+                id:'inheritsConstructor'
+              , test:function() {
+                    return !!elo.fn.constructor && elo.fn.constructor === elo().constructor;
+                }
+            });
+            aok({
+                id:'countDivs'
+              , test:function() {
+                    var $div = elo('div'), a = $div.length, b = document.getElementsByTagName('div').length;
+                    this.pass += remark(a + ' === ' + b);
+                    this.fail += remark(a + ' !== ' + b);
+                    return typeof a == 'number' && a === b;
+                 }
+            });
+            aok({
+                id:'undSelectorProp'
+              , test:function() {
+                    var $div = elo(), prop = 'selector';
+                    this.pass += remark($div[prop]);
+                    return !$div[prop];
+                 }
+            });
+            aok({
+                id:'tagSelectorProp'
+              , test:function() {
+                    var tag = 'div', $div = elo(tag), prop = 'selector';
+                    this.pass += remark(tag);
+                    return tag === $div[prop] && $div.hasOwnProperty(prop);
+                 }
+            });
+        });
+
+        // Print test outputs:
+        $.domReady(function(){
+            var i = 0;
+            $('tr').on('click', function(){
+                log(i++);
+            });
+            var b = $('body')[0];
+            $.hasEvent('blur') && update(readyTests);
+            //$(window).trigger('resize', );
+            //$.on(byId('ua'), 'click', f);
+            //$.trigger(byId('ua'), 'click');
+            $.data(docElem, {who: 2, what: 3, why: 4});
+            elo.noConflict();
+            //log(elo.eventMap);
+            //log(elo.dataMap);
+        });
+        
+        $(window).on('scroll', update.scrollTests);
+        $(window).on('resize', update.resizeTests);
+        $(docElem).on('click', function() {
+            var $$ = ender || jQuery;
+            $$ && $$(this).toggleClass('dark');
+        });
+        
+        function testInterop(eventData, a, b) {
+            aok({
+                id: 'interopEventData'
+              , pass: remark(eventData, aok.prototype.pass)
+              , test: eventData instanceof Object
+            });
+            aok({
+                id: 'interopArgs'
+              , pass: remark(arguments, aok.prototype.pass)
+              , test: true
+            });
+        }
+        
+        if (bean) {
+            //bean.on($('html')[0], 'lick', testInterop, {foo: 'bar'});
+            bean.on(docElem, 'click', testInterop, 2, 3);
+            bean.fire(docElem, 'click', 5);
+        }
+        
+        if (jQuery) {
+            //jQuery('html').on('click', 7, testInterop);
+            //jQuery('html').trigger('click', 5, 6);
+        }
+
+    }(this, this.document));
+    </script>
+</head>
+<body>
+    <header>
+        <h1><a href="http://github.com/ryanve/elo">elo</a> Test Suite</h1>
+    </header>
+
+    <pre id="ua"></pre>
+
+    <!--[if IE]>
+        <strong>[!] Tests in <abbr class=red>IE</abbr> may not work locally.</strong>
+    <![endif]-->
+
+    <div id="a">
+        <pre><code>div#a</code></pre>
+    </div>
+    
+    <p>Open the console to view tests.</p>
+
+    <div id="empty">
+        <p>This text in <code>div#empty</code> gets emptied by <code>elo.fn.empty()</code> 
+        and therefore should <strong>not</strong> appear on the page.</p>
+    </div>
+</body>
+</html>

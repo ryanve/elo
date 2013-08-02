@@ -1,7 +1,7 @@
 {
     "name": "elo",
     "description": "cross-browser Javascript events and data module",
-    "version": "1.5.0",
+    "version": "1.5.1",
     "homepage": "http://elo.airve.com",
     "author": "Ryan Van Etten <@ryanve>",
     "keywords": ["event", "events", "data", "dom", "ender", "javascript", "js"],

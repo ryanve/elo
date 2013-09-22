@@ -3,7 +3,7 @@
  * @author      Ryan Van Etten
  * @link        elo.airve.com
  * @license     MIT
- * @version     1.5.1
+ * @version     1.5.2
  */
 
 /*jshint expr:true, sub:true, supernew:true, debug:true, node:true, boss:true, devel:true, evil:true, 
@@ -34,8 +34,8 @@
 
         // Data objects are organized by unique identifier:
         // Use null objects so we don't need to do hasOwnProperty checks
-      , eventMap = {"__proto__":null} // event data cache
-      , dataMap = {"__proto__":null} // other data cache
+      , eventMap = {} // event data cache
+      , dataMap = {} // other data cache
       , uidProp = 'uidElo' // property name
       , uidAttr = 'data-uid-elo' // elements are identified via data attribute
       , uid = 1 // unique identifier
@@ -249,7 +249,7 @@
         var id = getId(obj), hasVal = arguments.length > 2;
         if (!id || (hasVal && key == null))
             throw new TypeError('@data'); 
-        dataMap[id] = dataMap[id] || {"__proto__": null}; // initialize if needed
+        dataMap[id] = dataMap[id] || {};
         if (key == null)
             return key === null ? void 0 : aug({}, dataMap[id]); // GET invalid OR all
         if (hasVal)

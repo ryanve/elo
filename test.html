@@ -37,7 +37,6 @@
           , log = aok.log
           , express = aok.express
           , byId = aok.id
-          , domReady = $.domReady || $
           , jQuery = window.jQuery
           , ender = window.ender
           , docElem = document.documentElement
@@ -65,36 +64,15 @@
         update.scrollTests = function() { update(scrollTests); };
         update.readyTests = function() { update(readyTests); };     
 
-        function aug(receiver, supplier, force) {
-            for (var n in supplier) {
-                if (supplier.hasOwnProperty(n) && null != supplier[n]) {
-                    if (force || null == receiver[n]) {
-                        receiver[n] = supplier[n];
-                    }
-                }
-            }
-            return receiver;
-        }
-
         jQuery && jQuery.noConflict();
         
-        // express('hasEvent: ' + (elo.hasEvent('resize', 'a') === Modernizr.hasEvent('resize', 'div')));
-        
-        readyTests.push({
-            id: '$.fn.empty',
-            test: function() {
-                var elem = byId('empty');
-                effin.empty.call([elem]);
-                return !elem.innerHTML;
-            }
-        });
-        
-        readyTests.push({
-            id: 'divHasEvent:blur'
-          , test: function() {
-                return true === ($.hasEvent('blur', testDiv) && $.hasEvent('blur', 'div'));
-            }
-        });
+        readyTests.push({id:'$.fn.empty', test:function() {
+            var elem = byId('empty');
+            effin.empty.call([elem]);
+            return !elem.innerHTML;
+        }}, {id: 'divHasEvent:blur', test: function() {
+            return true === ($.hasEvent('blur', testDiv) && $.hasEvent('blur', 'div'));
+        }});
         
         // Make sure the $ methods tested are the elo methods:
         elo && elo.bridge && elo.bridge($, $ !== elo && $ !== window.jQuery);
@@ -111,10 +89,6 @@
         // Merge tests by event:
         readyTests = readyTests.concat(scrollTests, resizeTests); // all of em
         
-        //$('html').data('foo', 'bar');
-        //express($('html').data('foo'));
-        //$('html').removeData('foo');
-        
         $(docElem).one('customEvent', function(o, extraParam) {
             aok({id:'customEventThis', test:this === docElem});
             aok({id:'customEventType', test:'customEvent' === o.type});
@@ -122,61 +96,53 @@
             aok({id:'customEventTrig', test:true === o.isTrigger});
         }).trigger('customEvent', ['extraParam']);
       
-        elo(function($) {
-
-            aok({id:'alias', test:$ === elo});
+        elo(function(_elo) {
+            aok({id:'readyParam', test:_elo === elo});
             aok({id:'readyScope', test:this === document});
-            aok({ 
-                id:'instanceof'
-              , test:function() {
-                    var $group = elo([elo(), elo(''), elo('div')]);
-                    return $group instanceof elo && $group.each(function() {
-                        return this instanceof elo;
-                    });
-                }
-            });
+            aok({id:'instanceof', test:function() {
+                var $group = elo([elo(), elo(''), elo('div')]);
+                return $group instanceof elo && $group.each(function() {
+                    return this instanceof elo;
+                });
+            }});
             aok({id:'effinSynced', test:function() {
-                    var key, bool = elo.prototype === elo.fn;
-                    if (bool) {
-                        elo.fn[key = 'checkSync'] = 1;
-                        bool = 1 === elo.prototype[key];
-                        delete elo.prototype[key];
-                        bool = bool && !elo.fn.hasOwnProperty(key);
-                    }
-                    return bool;
-                } 
-            });
-            aok({
-                id:'inheritsConstructor'
-              , test:function() {
-                    return !!elo.fn.constructor && elo.fn.constructor === elo().constructor;
+                var key, bool = elo.prototype === elo.fn;
+                if (bool) {
+                    elo.fn[key = 'checkSync'] = 1;
+                    bool = 1 === elo.prototype[key];
+                    delete elo.prototype[key];
+                    bool = bool && !elo.fn.hasOwnProperty(key);
                 }
-            });
-            aok({
-                id:'countDivs'
-              , test:function() {
-                    var $div = elo('div'), a = $div.length, b = document.getElementsByTagName('div').length;
-                    this.pass += remark(a + ' === ' + b);
-                    this.fail += remark(a + ' !== ' + b);
-                    return typeof a == 'number' && a === b;
-                 }
-            });
-            aok({
-                id:'undSelectorProp'
-              , test:function() {
-                    var $div = elo(), prop = 'selector';
-                    this.pass += remark($div[prop]);
-                    return !$div[prop];
-                 }
-            });
-            aok({
-                id:'tagSelectorProp'
-              , test:function() {
-                    var tag = 'div', $div = elo(tag), prop = 'selector';
-                    this.pass += remark(tag);
-                    return tag === $div[prop] && $div.hasOwnProperty(prop);
-                 }
-            });
+                return bool;
+            }});
+            aok({id:'inheritsConstructor', test:function() {
+                return !!elo.fn.constructor && elo.fn.constructor === elo().constructor;
+            }});
+            aok({id:'countDivs', test:function() {
+                var $div = elo('div'), a = $div.length, b = document.getElementsByTagName('div').length;
+                this.pass += remark(a + ' === ' + b);
+                this.fail += remark(a + ' !== ' + b);
+                return typeof a == 'number' && a === b;
+            }});
+            aok({id:'selectorProp', test:function() {
+                var $div = elo('div'), prop = 'selector';
+                return 'div' === $div[prop] && $div.hasOwnProperty(prop) && void 0 === elo()[prop];
+             }});
+             aok({id:'dataSingle', test:function() {
+                var el = testDiv, key = 'k', value = $.data(el, key, 1);
+                if (1 !== value || $.data(el, key) !== value) return false;
+                $.removeData(el, key);
+                return void 0 === $.data(el, key);
+             }});
+             aok({id:'cleanData', test:function() {
+                var ran = 0, key = 'a', type = 'kustom', subjects = [testDiv, {}];
+                $.fn.data.call(subjects, key, 1);
+                $.fn.on.call(subjects, type, function() { ran++; });
+                $.data(subjects, key, 1);
+                $.cleanData(subjects);
+                $.fn.trigger.call(subjects, type);
+                return !ran && !$.data(subjects, key) && !$.data(subjects[0], key) && !$.data(subjects[1], key);
+             }});
         });
 
         // Print test outputs:
@@ -226,7 +192,6 @@
             //jQuery('html').on('click', 7, testInterop);
             //jQuery('html').trigger('click', 5, 6);
         }
-
     }(this, this.document));
     </script>
 </head>

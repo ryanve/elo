@@ -1,15 +1,15 @@
 /*!
- * elo          cross-browser JavaScript events and data module
- * @author      Ryan Van Etten
- * @link        elo.airve.com
- * @license     MIT
- * @version     1.5.3
+ * elo      cross-browser JavaScript events and data module
+ * @version 1.5.4
+ * @link    elo.airve.com
+ * @license MIT
+ * @author  Ryan Van Etten
  */
 
 /*jshint expr:true, sub:true, supernew:true, debug:true, node:true, boss:true, devel:true, evil:true, 
   laxcomma:true, eqnull:true, undef:true, unused:true, browser:true, jquery:true, maxerr:100 */
 
-(function (root, name, make) {
+(function(root, name, make) {
     if (typeof module != 'undefined' && module['exports']) module['exports'] = make();
     else root[name] = make();
 }(this, 'elo', function() {
@@ -24,15 +24,14 @@
     // developers.google.com/closure/compiler/docs/api-tutorial3
     // developers.google.com/closure/compiler/docs/js-for-compiler
 
-    var root = this
+    var domReady, eloReady
+      , root = this
       , name = 'elo'
-      , alias = '$'
       , win = window
       , doc = document
       , docElem = doc.documentElement
-      , array = []
-      , slice = array.slice
-      , push = array.push
+      , slice = [].slice
+      , push = [].push
 
         // Data objects are organized by unique identifier:
         // Use null objects so we don't need to do hasOwnProperty checks
@@ -41,8 +40,7 @@
       , uidProp = 'uidElo' // property name
       , uidAttr = 'data-uid-elo' // elements are identified via data attribute
       , uid = 4 // unique identifier
-      , queryEngine = function (s, root) {
-            // caniuse.com/#feat=queryselector
+      , queryEngine = function(s, root) {
             return s ? (root || doc).querySelectorAll(s) : [];
         }
 
@@ -51,19 +49,16 @@
       , FIX = !('onblur' in docElem) // Detect whether to fix event detection in hasEvent()
 
         // Normalize the native add/remove-event methods:
-      , add = W3C ? function (node, type, fn) { node.addEventListener(type, fn, false); }
-                  : function (node, type, fn) { node.attachEvent('on' + type, fn); }
-      , rem = W3C ? function (node, type, fn) { node.removeEventListener(type, fn, false); }
-                  : function (node, type, fn) { node.detachEvent('on' + type, fn); }
+      , add = W3C ? function(node, type, fn) { node.addEventListener(type, fn, false); }
+                  : function(node, type, fn) { node.attachEvent('on' + type, fn); }
+      , rem = W3C ? function(node, type, fn) { node.removeEventListener(type, fn, false); }
+                  : function(node, type, fn) { node.detachEvent('on' + type, fn); }
 
         // Local vars specific to domReady:
       , readyStack = [] // stack of functions to fire when the DOM is ready
       , isReady = /^loade|c/.test(doc.readyState) // test initial state
       , needsHack = !!docElem.doScroll
-      , readyType = needsHack ? 'onreadystatechange' : 'DOMContentLoaded'
-      , domReady // defined later
-      , eloReady // defined later
-    ;
+      , readyType = needsHack ? 'onreadystatechange' : 'DOMContentLoaded';
 
     // Temporary local version of hook allows for the actual
     // $.hook to be added after the api has been created. If $.hook 
@@ -125,7 +120,7 @@
     
     // jQuery-inspired magic to make `api() instanceof api` be `true` and to make
     // it so that methods added to api.fn map back to the prototype and vice versa.
-    api.prototype = api['fn'] = Api.prototype = {};
+    api.prototype = api['fn'] = Api.prototype;
 
     // Create top-level reference to self:
     // This makes it possible to bridge into a host, destroy the global w/ noConflict, 
@@ -265,26 +260,19 @@
     /**
      * Remove data associated with an object that was added via data()
      * Remove data by key, or if no key is provided, remove all.
-     * @param  {*=}                obj
-     * @param  {(string|number)=}  keys
+     * @param {*=}               ob
+     * @param {(string|number)=} keys
      */
-    function removeData(obj, keys) {
-        var id;
-        if (obj) {
-            id = getId(obj);
-            if (id && dataMap[id]) {
-                if (arguments.length < 2) {// delete all data:
-                    delete dataMap[id]; 
-                } else if (typeof keys == 'number') {// numbers:
-                    delete dataMap[id][keys]; 
-                } else if (keys) {// strings:
-                    eachSSV(keys, function(k){
-                        delete dataMap[id][k]; 
-                    });
-                }
-            }
+    function removeData(ob, keys) {
+        var id = ob && getId(ob);
+        if (id && dataMap[id]) {
+            if (2 > arguments.length) delete dataMap[id]; // Remove all data.
+            else if (typeof keys == 'number') delete dataMap[id][keys]; 
+            else keys && eachSSV(keys, function(k) {
+                delete dataMap[id][k]; 
+            });
         }
-        return obj;
+        return ob;
     }
 
     /**
@@ -327,18 +315,16 @@
      * @param {*}  item  is the item or collection of items whose data you want to purge.
      */
     function cleanData(item) {
-        var i;
+        var l, i = 0;
         if (!item) return;
         removeData(item);
         if (typeof item == 'object') {
             cleanEvents(item);
-            if (item.nodeType && item.removeAttribute) {
-                item.removeAttribute(uidAttr);
-            } else if (typeof(i = item.length) == 'number') {
-                while (i--) cleanData(item[i]); // Go deep.
-            }
+            if (item.nodeType) item.removeAttribute && item.removeAttribute(uidAttr);
+            else for (l = item.length; i < l;) cleanData(item[i++]); // Deep.
         }
-        void 0 === item[uidProp] || (delete item[uidProp]) || (item[uidProp] = void 0);
+        if (uidProp in item)
+            (delete item[uidProp]) || (item[uidProp] = void 0);
     }
 
     /**
@@ -370,7 +356,7 @@
                 node.setAttribute(eventName, '');
                 isSupported = typeof node[eventName] == 'function';
                 // Cleanup
-                null == node[eventName] || (node[eventName] = void 0)
+                null == node[eventName] || (node[eventName] = void 0);
                 node.removeAttribute(eventName);
             }
         }
@@ -480,7 +466,7 @@
             eachEvent(types, one, node);
         } else {
             var actualHandler;
-            on(node, types, (actualHandler = function(){
+            on(node, types, (actualHandler = function() {
                 off(node, types, actualHandler);
                 return fn !== false && fn.apply(node, arguments);
             }));
@@ -671,7 +657,7 @@
      */
     api['fn']['applyAll'] = function(scope, args, breaker, outerContinue) {
         if (scope instanceof Array) {// Syntax 2:
-            // HANDLE: $(els).applyAll([function(a, b, c){   }], [a, b, c]);
+            // HANDLE: $(els).applyAll([function(a, b, c) {   }], [a, b, c]);
             outerContinue = outerContinue !== false; // convert to `each` breaker
             return each(this, function(el) {// `el` goes to the scope of the apply'd fn:
                 return applyAll(this, el, args, breaker) ? true : outerContinue;

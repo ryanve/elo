@@ -1,9 +1,8 @@
 /*!
- * elo      cross-browser JavaScript events and data module
- * @version 1.5.5
- * @link    elo.airve.com
+ * elo 1.5.5 cross-browser JavaScript events and data module
+ * @link http://elo.airve.com
  * @license MIT
- * @author  Ryan Van Etten
+ * @author Ryan Van Etten
  */
 
 /*jshint expr:true, sub:true, supernew:true, debug:true, node:true, boss:true, devel:true, evil:true, 
@@ -130,10 +129,10 @@
 
     /**
      * A hella' ballistic iterator: jQuery had sex with Underscore. This was the offspring.
-     * @param  {*}        ob       is the array|object|string|function to iterate over.
-     * @param  {Function} fn       is the callback - it receives (value, key, ob)
-     * @param  {*=}       scope    thisArg (defaults to current item)
-     * @param  {*=}       breaker  value for which if fn returns it, the loop stops (default: false)
+     * @param {*} ob is the array|object|string|function to iterate over.
+     * @param {Function} fn is the callback - it receives (value, key, ob)
+     * @param {*=} scope thisArg (defaults to current item)
+     * @param {*=} breaker value for which if fn returns it, the loop stops (default: false)
      */
     function each(ob, fn, scope, breaker) {
         // Opt out of the native forEach here b/c we want to:
@@ -156,9 +155,9 @@
      * Convert SSV string to array (if not already) and iterate thru its values.
      * We want this local to be fast and furious. It gets called each time on, 
      * off, one, is called, among other internal usages.
-     * @link   jsperf.com/eachssv
-     * @param  {Array|string|*}  list   is a space-separated string or array to iterate over
-     * @param  {Function}        fn     is the callback - it receives (value, key, ob)
+     * @link http://jsperf.com/eachssv
+     * @param {Array|string|*} list   is a space-separated string or array to iterate over
+     * @param {Function} fn     is the callback - it receives (value, key, ob)
      */
     function eachSSV(list, fn) {
         var l, i = 0;
@@ -172,8 +171,8 @@
 
     /**
      * Augment an object with the properties of another object.
-     * @param  {Object|Array|Function}  r   receiver
-     * @param  {Object|Array|Function}  s   supplier
+     * @param {Object|Array|Function} r receiver
+     * @param {Object|Array|Function} s supplier
      */
      function aug(r, s) {
         for (var k in s)
@@ -182,25 +181,20 @@
     }
 
     /**
-     * Fire every function in an array (or arr-like object) using the 
-     * specified scope and args.
-     * @param  {Array|Object}  fns      array of functions to fire
-     * @param  {Object|*}      scope    the value of `this` in each fn
-     * @param  {Array=}        args     optional args to pass to each fn
-     * @param  {*=}            breaker  optional value for which if any of the fns return
-     *                                  that value, the loop will stop
+     * Fire every function in a stack using the specified scope and args.
+     * @param {{length:number}} fns stack of functions to fire
+     * @param {*=} scope thisArg
+     * @param {(Array|Arguments)=} args
+     * @param {*=} breaker
+     * @return {boolean}
      */
     function applyAll(fns, scope, args, breaker) {
-        if (!fns) return true; // ensures the only way to return falsey is via the breaker
-        var i = 0, l = fns.length, stop = void 0 !== breaker;
-        stop || (breaker = 0); // breaker is disregarded w/o stop - do this to simplify the loop
-        for (args = args || []; i < l; i++) {
-            if (typeof fns[i] == 'function' && fns[i].apply(scope, args) === breaker && stop) {
-                // Break by returning `false` so that `applyAll` can be used to break out of `each`
-                return false;
-            }
-        }
-        return fns;
+        if (!fns) return true;
+        var i = 0, l = fns.length;
+        breaker = void 0 === breaker ? {} : breaker; // disregard if none
+        for (args = args || []; i < l; i++)
+            if (typeof fns[i] == 'function' && fns[i].apply(scope, args) === breaker) return false;
+        return true;
     }
 
     /**

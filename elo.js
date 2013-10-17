@@ -227,16 +227,12 @@
      */    
     function data(obj, key, val) {
         var id = getId(obj), hasVal = arguments.length > 2;
-        if (!id || (hasVal && key == null))
-            throw new TypeError('@data'); 
+        if (!id || (hasVal && key == null)) throw new TypeError('@data'); 
         dataMap[id] = dataMap[id] || {};
-        if (key == null)
-            return key === null ? void 0 : aug({}, dataMap[id]); // GET invalid OR all
-        if (hasVal)
-            return dataMap[id][key] = val; // SET (single)
-        if (typeof key != 'object')
-            return dataMap[id][key]; // GET (single)
-        aug(dataMap[id], key); // SET (multi)
+        if (key == null) return key === null ? void 0 : dataMap[id]; // GET invalid OR all
+        if (hasVal) return dataMap[id][key] = val; // SET (single)
+        if (typeof key != 'object') return dataMap[id][key]; // GET (single)
+        return aug(dataMap[id], key); // SET (multi)
     }
 
     /**
@@ -650,7 +646,6 @@
     api['fn']['data'] = function(key, val) {
         var i, n, count = arguments.length, hasVal = 1 < count;
         if (!count) return this[0] ? data(this[0]) : void 0; // GET-all
-
         // We have to make sure `key` is not an object (in which case it'd be set, not get)
         // Strings created by (new String()) are treated as objects. ( bit.ly/NPuVIr )
         // Also remember that `key` can be a `number` too.
@@ -658,7 +653,6 @@
             // Expedite simple gets by directly grabbing from the dataMap.
             // Return the value (if it exists) or else undefined:
             return (i = getId(this[0])) && dataMap[i] ? dataMap[i][key] : void 0; // GET
-        
         for (i = 0, n = this.length; i < n; i++)
             // Iterate thru the truthy items, setting data on each of them.
             this[i] && (hasVal ? data(this[i], key, val) : data(this[i], key)); // SET
@@ -712,7 +706,6 @@
             custom.apply(this, arguments);
             return r;
         }
-        
         force = true === force; // require explicit true to force
         $ = typeof $ == 'function' || typeof $ == 'object' ? $ : r; // allow null
         for (k in s) {

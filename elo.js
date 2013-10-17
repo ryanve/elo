@@ -1,6 +1,6 @@
 /*!
  * elo      cross-browser JavaScript events and data module
- * @version 1.5.4
+ * @version 1.5.5
  * @link    elo.airve.com
  * @license MIT
  * @author  Ryan Van Etten
@@ -79,8 +79,8 @@
 
     /**
      * api is the export (all public methods are added to it)
-     * @param  {*}        item
-     * @param  {Object=}  root 
+     * @param {*} item
+     * @param {Object=} root 
      */
     function api(item, root) {
         return new Api(item, root);
@@ -88,33 +88,21 @@
 
    /**
     * @constructor
-    * @param  {*=}       item 
-    * @param  {Object=}  root 
+    * @param {*=} item 
+    * @param {Object=} root 
     * adapted from jQuery and ender
     */
     function Api(item, root) {
-        var i = 0;
-        this['length'] = 0;
+        var i;
+        this.length = 0;
+        item = typeof item == 'string' ? hook('select')(this['selector'] = item, root) : item;
         if (typeof item == 'function') {
-            // The default 'api' closure is a ready shortcut that passes the `api` as the
-            // first arg and the `document` as `this`:
-            hook('api')(item); // < designed to be closure or ready shortcut
-        } else if (item && (item.nodeType || typeof (i = item.length) != 'number' || item === win)) {
-            // Handle DOM elems/nodes and anything w/o a length *number* ( jsperf.com/isnumber-ab )
-            // The window has length in it and must be checked too. ( jsperf.com/iswindow-prop )
-            this[0] = item; 
-            this['length'] = 1;
-        } else {// Array-like:
-            if (typeof item == 'string') {
-                this['selector'] = item;
-                item = hook('select')(item, root);
-                i = item.length;
-            }
-            // Ensure length is 0 or a positive finite "number" and not NaN:
-            this['length'] = i = i > 0 ? i >> 0 : 0;
-            while (i--) {// make array-like:
+            hook('api')(item); // designed to be closure or ready shortcut
+        } else if (null != item) {        
+            if (item.nodeType || typeof (i = item.length) != 'number' || item.window == item)
+                this[this.length++] = item;
+            else for (this.length = i = i > 0 ? i >> 0 : 0; i--;) // ensure positive integer
                 this[i] = item[i]; 
-            }
         }
     }
     

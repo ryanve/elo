@@ -1,7 +1,7 @@
 {
     "name": "elo",
     "description": "cross-browser JavaScript events and data module",
-    "version": "1.5.4",
+    "version": "1.5.5",
     "homepage": "http://elo.airve.com",
     "license": "MIT",
     "author": "Ryan Van Etten",

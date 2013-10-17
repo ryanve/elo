@@ -289,20 +289,24 @@
     }
 
     /**
-     * Delete **all** the elo data associated with the specified item(s).
-     * @param {*} item or collection of items whose data you want to purge.
+     * Delete **all** the elo data associated with the specified item(s)
+     * @param {Object|Node|Function} item or collection of items to purge
      */
     function cleanData(item) {
-        var l, i = 0;
+        var deleted, l, i = 0;
         if (!item) return;
         removeData(item);
         if (typeof item == 'object') {
             cleanEvents(item);
             if (item.nodeType) item.removeAttribute && item.removeAttribute(uidAttr);
             else for (l = item.length; i < l;) cleanData(item[i++]); // Deep.
+        } else if (typeof item != 'function') { return; }
+        if (uidProp in item) {
+            try {
+                deleted = delete item[uidProp];
+            } catch(e) {}
+            if (!deleted) item[uidProp] = void 0;
         }
-        if (uidProp in item)
-            (delete item[uidProp]) || (item[uidProp] = void 0);
     }
 
     /**

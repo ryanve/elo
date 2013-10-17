@@ -201,7 +201,7 @@
      * Get the unique id associated with the specified item. If an id has not
      * yet been created, then create it. Return `undefined` for invalid types.
      * To have an id, the item must be truthy and either an object or function.
-     * @param  {*}                 item
+     * @param {*} item
      * @return {number|undefined}
      */
     function getId(item) {
@@ -221,9 +221,9 @@
 
     /**
      * Get or set arbitrary data associated with an object.
-     * @param  {Object|Array|Function}  obj
-     * @param  {(string|Object)=}       key
-     * @param  {*=}                     val
+     * @param {Object|Array|Function} obj
+     * @param {(string|Object)=} key
+     * @param {*=} val
      */    
     function data(obj, key, val) {
         var id = getId(obj), hasVal = arguments.length > 2;
@@ -242,7 +242,7 @@
     /**
      * Remove data associated with an object that was added via data()
      * Remove data by key, or if no key is provided, remove all.
-     * @param {*=}               ob
+     * @param {*=} ob
      * @param {(string|number)=} keys
      */
     function removeData(ob, keys) {
@@ -261,9 +261,9 @@
      * Remove event handlers from the internal eventMap. If `fn` is not specified,
      * then remove all the event handlers for the specified `type`. If `type` is 
      * not specified, then remove all the event handlers for the specified `node`.
-     * @param  {Object|*}         node
-     * @param  {(string|null)=}   type
-     * @param  {Function=}        fn
+     * @param {Object|*} node
+     * @param {(string|null)=} type
+     * @param {Function=} fn
      */
     function cleanEvents(node, type, fn) {
         if (!node) return;
@@ -294,7 +294,7 @@
 
     /**
      * Delete **all** the elo data associated with the specified item(s).
-     * @param {*}  item  is the item or collection of items whose data you want to purge.
+     * @param {*} item or collection of items whose data you want to purge.
      */
     function cleanData(item) {
         var l, i = 0;
@@ -312,10 +312,10 @@
     /**
      * Test if the specified node supports the specified event type.
      * This function uses the same signature as Modernizr.hasEvent, 
-     * @link   bit.ly/event-detection
-     * @link   github.com/Modernizr/Modernizr/pull/636
-     * @param  {string|*}            eventName  the event name, e.g. 'blur'
-     * @param  {(Object|string|*)=}  node       a node, window, or tagName (defaults to div)
+     * @link http://bit.ly/event-detection
+     * @link http://github.com/Modernizr/Modernizr/pull/636
+     * @param {string|*} eventName an event name, e.g. 'blur'
+     * @param {(Object|string|*)=} node a node, window, or tagName (defaults to div)
      * @return {boolean}
      */
     function hasEvent(eventName, node) {
@@ -349,13 +349,12 @@
 
     /**
      * Adapter for handling 'event maps' passed to on|off|one
-     * @param {Object|*}    list  events map (event names as keys and handlers as values)
-     * @param {Function}    fn    the fn (on|off|one) to call on each pair
-     * @param {(Object|*)=} node  the element or object to attach the events to
+     * @param {Object|*} list events map (event names as keys and handlers as values)
+     * @param {Function} fn method (on|off|one) to call on each pair
+     * @param {(Node|Object|*)=} node or object to attach the events to
      */
     function eachEvent(list, fn, node) {
-        for (var name in list)
-            fn(node, name, list[name]);
+        for (var name in list) fn(node, name, list[name]);
     }
     
     /**
@@ -363,8 +362,8 @@
      * We use this to normalize the scope passed to event handlers in non-standard browsers.
      * In modern browsers the value of `this` in the listener is the node.
      * In old IE, it's the window. We normalize it here to be the `node`.
-     * @param  {Function}   fn      function to normalize
-     * @param  {*=}         scope   thisArg (defaults to `window`)
+     * @param {Function} fn function to normalize
+     * @param {*=} scope thisArg (defaults to `window`)
      * @return {Function}
      */
     function normalizeScope(fn, scope) {
@@ -374,16 +373,15 @@
         // Technically we should give `normalized` its own uid (maybe negative or
         // underscored). But, for our internal usage, cloning the original is fine, 
         // and it simplifies removing event handlers via off() (see cleanEvents()).
-        if (fn[uidProp])
-            normalized[uidProp] = fn[uidProp]; 
+        if (fn[uidProp]) normalized[uidProp] = fn[uidProp]; 
         return normalized;
     }
 
     /**
-     * on()    Attach an event handler function for one or more event types to the specified node.
-     * @param  {Object}          node    is the element|document|window|object to attach events to
-     * @param  {string|Object}   types   one or more space-separated event names, or an events map
-     * @param  {Function=}       fn      the callback to fire when the event occurs
+     * on() Attach an event handler function for one or more event types to the specified node.
+     * @param {Node|Object} node object to add events to
+     * @param {string|Object} types space-separated event names, or an events map
+     * @param {Function=} fn handler to add
      */    
     function on(node, types, fn) {
         // Don't deal w/ text/comment nodes for jQuery-compatibility.
@@ -416,12 +414,12 @@
     }
 
     /**
-     * off()   Remove an event handlers added via on() from the specified node. If `fn` is
-     *         not specified, then remove all the handlers for the specified types. If `types`
-     *         is not specfied, then remove *all* the handlers from the specified node.
-     * @param  {Object}           node    is the element|document|window|object to remove events from
-     * @param  {(string|Object)=} types   one or more space-separated event names, or an events map
-     * @param  {Function=}        fn      the event handler to remove
+     * off() Remove an event handlers added via on() from the specified node. If `fn` is
+     * not specified, then remove all the handlers for the specified types. If `types`
+     * is not specfied, then remove *all* the handlers from the specified node.
+     * @param {Node|Object} node object to remove events from
+     * @param {string|Object} types space-separated event names, or an events map
+     * @param {Function=} fn handler to remove
      */
     function off(node, types, fn) {
         if (!node || 3 === node.nodeType || 8 === node.nodeType) return;
@@ -438,10 +436,10 @@
     }
 
     /**
-     * one()   Add an event handler that only runs once and is then removed.
-     * @param  {Object}         node   is the element|document|window|object to add events to
-     * @param  {string|Object}  types  one or more space-separated event names, or an events map
-     * @param  {Function=}      fn     the event handler to add (runs only once)
+     * one() Add an event handler that only runs once and is then removed.
+     * @param {Node|Object} node object to add events to
+     * @param {string|Object} types space-separated event names, or an events map
+     * @param {Function=} fn handler to add
      */
     function one(node, types, fn) {
         if (null == fn && typeof types == 'object') {
@@ -461,24 +459,22 @@
      * browser's native actions for the event. To do so would take a lot more code. 
      * In that respect it works like jQuery.fn.triggerHandler, but elo.fn.trigger
      * works like jQuery.fn.trigger otherwise (e.g. it operates on the whole set). 
-     * @param  {Object}  node   is the element or object to trigger the event for
-     * @param  {string}  type   is an event name to trigger (namespaces are supported)
-     * @param  {Array=}  extras is an array of extra parameters to provide to the handler.
-     *                          The handlers receive (eventData, extras[0], extras[1], ...)
+     * @param {Node|Object} node object to remove events from
+     * @param {string} type is an event name to trigger
+     * @param {(Array|*)=} extras extra parameters to pass to the handler
+     * Handlers receive (eventData, extras[0], extras[1], ...)
      */
     function trigger(node, type, extras) {
         if (!type || !node || 3 === node.nodeType || 8 === node.nodeType) return;
         if (typeof node != 'object') throw new TypeError('@trigger');
-        var eventData = {}, id = getId(node), args;
+        var eventData = {}, id = getId(node);
         if (!id || !eventMap[id]) return;
         // Emulate the native and jQuery arg signature for event listeners,
         // supplying an object as first arg, but only supply a few props.
         // The `node` becomes the `this` value inside the handler.
         eventData['type'] = type.split('.')[0]; // w/o namespace
         eventData['isTrigger'] = true;
-        args = [eventData];
-        extras && push.apply(args, extras);
-        applyAll(eventMap[id]['on' + type], node, args);
+        applyAll(eventMap[id]['on' + type], node, null == extras ? [eventData] : [eventData].concat(extras));
     }
 
     // START domReady
@@ -500,15 +496,12 @@
         // When the hack is needed, we prevent the flush from
         // running until the readyState regex passes:
         if (needsHack && !(/^c/).test(doc.readyState)) return;
-        
         // Remove the listener.
         rem(doc, readyType, flush);
-
         // The flush itself only runs once.
         isReady = 1; // Record that the DOM is ready (needed in pushOrFire)
         while (ob = readyStack.shift())
             ob.f && ob.f.apply(doc, ob.a || [api]);
-
         // Fire handlers added via .on() too. These get an eventData object as
         // the arg and are fired after the ones above. (jQuery works the same.)
         trigger(doc, 'ready');
@@ -614,9 +607,9 @@
     });
 
     /**
-     * @param  {Function} fn       is the callback - it receives (value, key, ob)
-     * @param  {*=}       scope    thisArg (defaults to current item)
-     * @param  {*=}       breaker  defaults to `false`
+     * @param {Function} fn callback receives (value, key, ob)
+     * @param {*=} scope thisArg (defaults to current item)
+     * @param {*=} breaker defaults to `false`
      */
     api['fn']['each'] = function(fn, scope, breaker) {
         return each(this, fn, scope, breaker); 
@@ -684,11 +677,11 @@
 
     /**
      * Add event shortcut methods to the chain specified via an SSV list or array.
-     * @since      1.4 (formerly mixinEvent())
-     * @param      {Array|string}  list   array or SSV string of shortcut names
-     * @param      {boolean=}      force  whether to overwrite existing methods (default: false)
-     * @link       developer.mozilla.org/en/DOM_Events
-     * @example    $.dubEvent('resize scroll focus')  // creates $.fn.resize, ...
+     * @since 1.4 (formerly mixinEvent())
+     * @param {Array|string} list array or SSV string of shortcut names
+     * @param {boolean=} force  whether to overwrite existing methods (default: false)
+     * @link http://developer.mozilla.org/en/DOM_Events
+     * @example $.dubEvent('resize scroll focus') // creates $.fn.resize, ...
      */
     function dubEvent(list, force) {
         if (this === win) return;
@@ -705,17 +698,11 @@
 
     /**
      * Integrate applicable methods|objects into a host.
-     * @link  github.com/ryanve/submix
-     * @this  {Object|Function}                supplier
-     * @param {Object|Function}         r      receiver
-     * @param {boolean=}                force  whether to overwrite existing props (default: false)
-     * @param {(Object|Function|null)=} $      the top-level of the host api (default: `r`)
-     *                                         For default behavior `$` should be omitted or set to 
-     *                                         `undefined`. This param allows you to bridge to a receiver, 
-     *                                         but relay methods based on a another host, for example 
-     *                                         `someModule.bridge({}, false, jQuery)`. Set `$` explicity
-     *                                         to `null` *only* if you want to communicate to relays that
-     *                                         there should be *no* main api.                                   
+     * @link http://github.com/ryanve/submix
+     * @this {Object|Function} supplier
+     * @param {Object|Function} r receiver
+     * @param {boolean=} force  whether to overwrite existing props (default: false)
+     * @param {(Object|Function|null)=} $ the top-level of the host api (default: `r`)
      */
     function bridge(r, force, $) {
         var v, k, relay, custom, s = this; // s is the supplier
@@ -760,10 +747,10 @@
     api['bridge'] = bridge;
 
     /**
-     * @param  {Object|Function}  api
-     * @param  {Object|Function}  root
-     * @param  {string}           name
-     * @param  {string=}          alias
+     * @param {Object|Function} api
+     * @param {Object|Function} root
+     * @param {string} name
+     * @param {string=} alias
      */
     function noConflictRemix(api, root, name, alias) {
         if (!root || !name || !api ) return;

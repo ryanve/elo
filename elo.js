@@ -181,12 +181,12 @@
     }
 
     /**
-     * Fire every function in a stack using the specified scope and args.
+     * Apply every function in a stack using the specified scope and args.
      * @param {{length:number}} fns stack of functions to fire
      * @param {*=} scope thisArg
      * @param {(Array|Arguments)=} args
-     * @param {*=} breaker
-     * @return {boolean}
+     * @param {*=} breaker unless undefined
+     * @return {boolean} true if none return the breaker
      */
     function applyAll(fns, scope, args, breaker) {
         if (!fns) return true;
@@ -621,26 +621,13 @@
     // };
 
     /**
-     * Fire every function in `this` **OR** fire one or more 
-     * functions for each item in `this` -- using the supplied args.
-     * Syntax 1: $(fnsArray).applyAll(scope [, args, breaker])
-     * Syntax 2: $(els).applyAll(fnsArray [, args, breaker, outerContinue])
-     * In syntax 2, the scope in the apply'd fn will be the current elem.
-     * Syntax 1 used *unless* the first arg is an *array*.
-     * $(els).applyAll(fnsArray, args, false) //< able to break firing on current el and move onto the next el
-     * $(els).applyAll(fnsArray, args, false, false) //< able to break "hard" (break out of both loops)
+     * @this {{length:number}} stack of functions to fire
+     * @param {*=} scope
+     * @param {(Array|Arguments)=} args
+     * @param {*=} breaker
+     * @return {boolean}
      */
-    api['fn']['applyAll'] = function(scope, args, breaker, outerContinue) {
-        if (scope instanceof Array) {// Syntax 2:
-            // HANDLE: $(els).applyAll([function(a, b, c) {   }], [a, b, c]);
-            outerContinue = outerContinue !== false; // convert to `each` breaker
-            return each(this, function(el) {// `el` goes to the scope of the apply'd fn:
-                return applyAll(this, el, args, breaker) ? true : outerContinue;
-            }, scope); // < pass `scope` (array of fns) as `this` in iterator
-        }
-        // Syntax 1:
-        // HANDLE: $(fns).applyAll(thisArg, [a, b, c]); 
-        // (thisArg can be anything but an array in this syntax)
+    api['fn']['applyAll'] = function(scope, args, breaker) {
         return applyAll(this, scope, args, breaker); 
     };
     

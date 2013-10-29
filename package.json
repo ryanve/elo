@@ -1,11 +1,11 @@
 {
     "name": "elo",
     "description": "cross-browser JavaScript events and data module",
-    "version": "1.5.5",
+    "version": "1.6.0",
     "homepage": "http://elo.airve.com",
     "license": "MIT",
     "author": "Ryan Van Etten",
-    "keywords": ["event", "events", "data", "dom", "ender", "javascript", "js"],
+    "keywords": ["event", "events", "data", "dom", "emitter", "ender"],
     "main": "./elo.js",
     "ender": "./ender.js",
     "repository": {

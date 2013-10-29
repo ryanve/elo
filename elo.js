@@ -1,5 +1,5 @@
 /*!
- * elo 1.5.5 cross-browser JavaScript events and data module
+ * elo 1.6.0 cross-browser JavaScript events and data module
  * @link http://elo.airve.com
  * @license MIT
  * @author Ryan Van Etten
@@ -152,19 +152,15 @@
     }
 
     /**
-     * Convert SSV string to array (if not already) and iterate thru its values.
-     * We want this local to be fast and furious. It gets called each time on, 
-     * off, one, is called, among other internal usages.
+     * Iterate space-separated values. Optimized for internal use.
      * @link http://jsperf.com/eachssv
-     * @param {Array|string|*} list   is a space-separated string or array to iterate over
-     * @param {Function} fn     is the callback - it receives (value, key, ob)
+     * @param {Array|string|*} list to iterate over
+     * @param {Function} fn callback
      */
     function eachSSV(list, fn) {
         var l, i = 0;
-        list instanceof Array || (list = list.split(' '));
+        list = list instanceof Array ? list : list.split(' ');
         for (l = list.length; i < l; i++) {
-            // Only iterate truthy values.
-            // Omit thisArg support (no .call) as a minor optimization
             list[i] && fn(list[i], i, list);
         }
     }
@@ -175,8 +171,7 @@
      * @param {Object|Array|Function} s supplier
      */
      function aug(r, s) {
-        for (var k in s)
-            r[k] = s[k]; 
+        for (var k in s) r[k] = s[k]; 
         return r;
     }
 
@@ -659,25 +654,30 @@
         }
         return this;
     };
+    
+    /**
+     * @param {string} type event name
+     * @return {Function}
+     */
+    function shorthand(type) {
+        return function() {
+            var use = [type], method = 1 < push.apply(use, arguments) ? 'on' : 'trigger';
+            return this[method].apply(this, use);
+        };
+    }
 
     /**
-     * Add event shortcut methods to the chain specified via an SSV list or array.
-     * @since 1.4 (formerly mixinEvent())
-     * @param {Array|string} list array or SSV string of shortcut names
-     * @param {boolean=} force  whether to overwrite existing methods (default: false)
+     * Add event shorthands to the chain or a specified object.
+     * @param {Array|string} list of shortcut names
+     * @param {*=} dest destination defaults to `this`
      * @link http://developer.mozilla.org/en/DOM_Events
-     * @example $.dubEvent('resize scroll focus') // creates $.fn.resize, ...
+     * @example $.dubEvent('resize scroll focus')
      */
-    function dubEvent(list, force) {
-        if (this === win) return;
-        var receiver = this;
-        force = true === force;
-        list && eachSSV(list, function(n) {
-            (force || void 0 === receiver[n]) && (receiver[n] = function (fn) {
-                return arguments.length ? this['on'](n, fn) : this['trigger'](n);
-            });
-        });
-        return receiver;
+    function dubEvent(list, dest) {
+        dest = dest === Object(dest) ? dest : this === win ? {} : this;
+        return eachSSV(list, function(n) {
+            dest[n] = shorthand(n);
+        }), dest;
     }
     api['fn']['dubEvent'] = dubEvent;
 
@@ -686,7 +686,7 @@
      * @link http://github.com/ryanve/submix
      * @this {Object|Function} supplier
      * @param {Object|Function} r receiver
-     * @param {boolean=} force  whether to overwrite existing props (default: false)
+     * @param {boolean=} force whether to overwrite existing props (default: false)
      * @param {(Object|Function|null)=} $ the top-level of the host api (default: `r`)
      */
     function bridge(r, force, $) {
